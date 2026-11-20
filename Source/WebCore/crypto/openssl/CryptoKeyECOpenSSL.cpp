@@ -357,7 +357,7 @@ RefPtr<CryptoKeyEC> CryptoKeyEC::platformImportPkcs8(CryptoAlgorithmIdentifier i
         return nullptr;
 
     auto pkey = EvpPKeyPtr(EVP_PKCS82PKEY(p8inf.get()));
-    if (!pkey || EVP_PKEY_type(pkey->type) != EVP_PKEY_EC)
+    if (!pkey || EVP_PKEY_base_id(pkey.get()) != EVP_PKEY_EC)
         return nullptr;
 
     auto ecKey = EVP_PKEY_get0_EC_KEY(pkey.get());

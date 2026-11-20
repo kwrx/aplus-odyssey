@@ -178,6 +178,19 @@ public:
 
     std::unique_ptr<WebCore::DateTimeChooser> createDateTimeChooser(WebCore::DateTimeChooserClient&) final;
 
+#if ENABLE(WEB_CRYPTO)
+    bool wrapCryptoKey(const Vector<uint8_t>& key, Vector<uint8_t>& wrappedKey) const final
+    {
+        wrappedKey = key;
+        return true;
+    }
+    bool unwrapCryptoKey(const Vector<uint8_t>& wrappedKey, Vector<uint8_t>& key) const final
+    {
+        key = wrappedKey;
+        return true;
+    }
+#endif
+
 private:
     WebView* m_webView;
     RefPtr<WebCore::Element> m_fullScreenElement;

@@ -3,6 +3,7 @@ include(platform/Curl.cmake)
 include(platform/ImageDecoders.cmake)
 include(platform/TextureMapper.cmake)
 include(platform/FreeType.cmake)
+include(platform/OpenSSL.cmake)
 
 list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/platform/cairo"

@@ -33,7 +33,7 @@
 #include "CryptoKeyRSAComponents.h"
 #include "OpenSSLUtilities.h"
 #include <JavaScriptCore/TypedArrayInlines.h>
-#include <openssl/X509.h>
+#include <openssl/x509.h>
 #include <openssl/evp.h>
 
 namespace WebCore {
@@ -42,7 +42,7 @@ static size_t getRSAModulusLength(RSA* rsa)
 {
     if (!rsa)
         return 0;
-    return BN_num_bytes(rsa->n) * 8;
+    return BN_num_bytes(RSA_get0_n(rsa)) * 8;
 }
 
 RefPtr<CryptoKeyRSA> CryptoKeyRSA::create(CryptoAlgorithmIdentifier identifier, CryptoAlgorithmIdentifier hash, bool hasHash, const CryptoKeyRSAComponents& keyData, bool extractable, CryptoKeyUsageBitmap usages)
@@ -81,29 +81,39 @@ RefPtr<CryptoKeyRSA> CryptoKeyRSA::create(CryptoAlgorithmIdentifier identifier, 
     if (!rsa)
         return nullptr;
 
-    rsa->n = convertToBigNumber(rsa->n, keyData.modulus());
-    rsa->e = convertToBigNumber(rsa->e, keyData.exponent());
-    if (!rsa->n || !rsa->e)
+    BIGNUM* n = convertToBigNumber(nullptr, keyData.modulus());
+    BIGNUM* e = convertToBigNumber(nullptr, keyData.exponent());
+    BIGNUM* d = nullptr;
+    if (keyType == CryptoKeyType::Private) {
+        d = convertToBigNumber(nullptr, keyData.privateExponent());
+    }
+    if (!n || !e || (keyType == CryptoKeyType::Private && !d) || RSA_set0_key(rsa.get(), n, e, d) != 1) {
+        BN_free(n);
+        BN_free(e);
+        BN_free(d);
         return nullptr;
+    }
 
     if (keyType == CryptoKeyType::Private) {
-        rsa->d = convertToBigNumber(rsa->d, keyData.privateExponent());
-        rsa->p = convertToBigNumber(rsa->p, keyData.firstPrimeInfo().primeFactor);
-        rsa->q = convertToBigNumber(rsa->q, keyData.secondPrimeInfo().primeFactor);
-        if (!rsa->d || !rsa->p || !rsa->q)
+        BIGNUM* p = convertToBigNumber(nullptr, keyData.firstPrimeInfo().primeFactor);
+        BIGNUM* q = convertToBigNumber(nullptr, keyData.secondPrimeInfo().primeFactor);
+        if (!p || !q || RSA_set0_factors(rsa.get(), p, q) != 1) {
+            BN_free(p);
+            BN_free(q);
             return nullptr;
+        }
 
-        // We set dmp1, dmpq1, and iqmp member of the RSA struct if the keyData has corresponding data.
-
-        // dmp1 -- d mod (p - 1)
-        if (!keyData.firstPrimeInfo().factorCRTExponent.isEmpty())
-            rsa->dmp1 = convertToBigNumber(rsa->dmp1, keyData.firstPrimeInfo().factorCRTExponent);
-        // dmq1 -- d mod (q - 1)
-        if (!keyData.secondPrimeInfo().factorCRTExponent.isEmpty())
-            rsa->dmq1 = convertToBigNumber(rsa->dmq1, keyData.secondPrimeInfo().factorCRTExponent);
-        // iqmp -- q^(-1) mod p
-        if (!keyData.secondPrimeInfo().factorCRTCoefficient.isEmpty())
-            rsa->iqmp = convertToBigNumber(rsa->iqmp, keyData.secondPrimeInfo().factorCRTCoefficient);
+        if (!keyData.firstPrimeInfo().factorCRTExponent.isEmpty() && !keyData.secondPrimeInfo().factorCRTExponent.isEmpty() && !keyData.secondPrimeInfo().factorCRTCoefficient.isEmpty()) {
+            BIGNUM* dmp1 = convertToBigNumber(nullptr, keyData.firstPrimeInfo().factorCRTExponent);
+            BIGNUM* dmq1 = convertToBigNumber(nullptr, keyData.secondPrimeInfo().factorCRTExponent);
+            BIGNUM* iqmp = convertToBigNumber(nullptr, keyData.secondPrimeInfo().factorCRTCoefficient);
+            if (!dmp1 || !dmq1 || !iqmp || RSA_set0_crt_params(rsa.get(), dmp1, dmq1, iqmp) != 1) {
+                BN_free(dmp1);
+                BN_free(dmq1);
+                BN_free(iqmp);
+                return nullptr;
+            }
+        }
     }
 
     auto pkey = EvpPKeyPtr(EVP_PKEY_new());
@@ -205,7 +215,7 @@ RefPtr<CryptoKeyRSA> CryptoKeyRSA::importSpki(CryptoAlgorithmIdentifier identifi
 
     // We use d2i_PUBKEY() to import a public key.
     auto pkey = EvpPKeyPtr(d2i_PUBKEY(nullptr, &ptr, keyData.size()));
-    if (!pkey || EVP_PKEY_type(pkey->type) != EVP_PKEY_RSA)
+    if (!pkey || EVP_PKEY_base_id(pkey.get()) != EVP_PKEY_RSA)
         return nullptr;
 
     return adoptRef(new CryptoKeyRSA(identifier, hash.value_or(CryptoAlgorithmIdentifier::SHA_1), !!hash, CryptoKeyType::Public, WTFMove(pkey), extractable, usages));
@@ -222,7 +232,7 @@ RefPtr<CryptoKeyRSA> CryptoKeyRSA::importPkcs8(CryptoAlgorithmIdentifier identif
         return nullptr;
 
     auto pkey = EvpPKeyPtr(EVP_PKCS82PKEY(p8inf.get()));
-    if (!pkey || EVP_PKEY_type(pkey->type) != EVP_PKEY_RSA)
+    if (!pkey || EVP_PKEY_base_id(pkey.get()) != EVP_PKEY_RSA)
         return nullptr;
 
     return adoptRef(new CryptoKeyRSA(identifier, hash.value_or(CryptoAlgorithmIdentifier::SHA_1), !!hash, CryptoKeyType::Private, WTFMove(pkey), extractable, usages));
@@ -270,8 +280,8 @@ auto CryptoKeyRSA::algorithm() const -> KeyAlgorithm
 {
     RSA* rsa = EVP_PKEY_get0_RSA(platformKey());
 
-    auto modulusLength = rsa ? BN_num_bytes(rsa->n) * 8 : 0;
-    auto publicExponent = rsa ? convertToBytes(rsa->e) : Vector<uint8_t> { };
+    auto modulusLength = rsa ? BN_num_bytes(RSA_get0_n(rsa)) * 8 : 0;
+    auto publicExponent = rsa ? convertToBytes(RSA_get0_e(rsa)) : Vector<uint8_t> { };
 
     if (m_restrictedToSpecificHash) {
         CryptoRsaHashedKeyAlgorithm result;
@@ -295,55 +305,64 @@ std::unique_ptr<CryptoKeyRSAComponents> CryptoKeyRSA::exportData() const
     if (!rsa)
         return nullptr;
 
+    const BIGNUM* rn = RSA_get0_n(rsa);
+    const BIGNUM* re = RSA_get0_e(rsa);
+    const BIGNUM* rd = RSA_get0_d(rsa);
+    const BIGNUM* rp = RSA_get0_p(rsa);
+    const BIGNUM* rq = RSA_get0_q(rsa);
+    const BIGNUM* rdmp1 = RSA_get0_dmp1(rsa);
+    const BIGNUM* rdmq1 = RSA_get0_dmq1(rsa);
+    const BIGNUM* riqmp = RSA_get0_iqmp(rsa);
+
     switch (type()) {
     case CryptoKeyType::Public:
         // We need the public modulus and exponent for the public key.
-        if (!rsa->n || !rsa->e)
+        if (!rn || !re)
             return nullptr;
-        return CryptoKeyRSAComponents::createPublic(convertToBytes(rsa->n), convertToBytes(rsa->e));
+        return CryptoKeyRSAComponents::createPublic(convertToBytes(rn), convertToBytes(re));
     case CryptoKeyType::Private: {
         // We need the public modulus, exponent, and private exponent, as well as p and q prime information.
-        if (!rsa->n || !rsa->e || !rsa->d || !rsa->p || !rsa->q)
+        if (!rn || !re || !rd || !rp || !rq)
             return nullptr;
 
         CryptoKeyRSAComponents::PrimeInfo firstPrimeInfo;
-        firstPrimeInfo.primeFactor = convertToBytes(rsa->p);
+        firstPrimeInfo.primeFactor = convertToBytes(rp);
 
         CryptoKeyRSAComponents::PrimeInfo secondPrimeInfo;
-        secondPrimeInfo.primeFactor = convertToBytes(rsa->q);
+        secondPrimeInfo.primeFactor = convertToBytes(rq);
 
         auto context = BNCtxPtr(BN_CTX_new());
         // dmp1 -- d mod (p - 1)
-        if (rsa->dmp1)
-            firstPrimeInfo.factorCRTExponent = convertToBytes(rsa->dmp1);
+        if (rdmp1)
+            firstPrimeInfo.factorCRTExponent = convertToBytes(rdmp1);
         else {
             auto dmp1 = BIGNUMPtr(BN_new());
-            auto pm1 = BIGNUMPtr(BN_dup(rsa->p));
-            if (BN_sub_word(pm1.get(), 1) == 1 && BN_mod(dmp1.get(), rsa->d, pm1.get(), context.get()) == 1)
+            auto pm1 = BIGNUMPtr(BN_dup(rp));
+            if (BN_sub_word(pm1.get(), 1) == 1 && BN_mod(dmp1.get(), rd, pm1.get(), context.get()) == 1)
                 firstPrimeInfo.factorCRTExponent = convertToBytes(dmp1.get());
         }
 
         // dmq1 -- d mod (q - 1)
-        if (rsa->dmq1)
-            secondPrimeInfo.factorCRTExponent = convertToBytes(rsa->dmq1);
+        if (rdmq1)
+            secondPrimeInfo.factorCRTExponent = convertToBytes(rdmq1);
         else {
             auto dmq1 = BIGNUMPtr(BN_new());
-            auto qm1 = BIGNUMPtr(BN_dup(rsa->q));
-            if (BN_sub_word(qm1.get(), 1) == 1 && BN_mod(dmq1.get(), rsa->d, qm1.get(), context.get()) == 1)
+            auto qm1 = BIGNUMPtr(BN_dup(rq));
+            if (BN_sub_word(qm1.get(), 1) == 1 && BN_mod(dmq1.get(), rd, qm1.get(), context.get()) == 1)
                 secondPrimeInfo.factorCRTExponent = convertToBytes(dmq1.get());
         }
 
         // iqmp -- q^(-1) mod p
-        if (rsa->iqmp)
-            secondPrimeInfo.factorCRTCoefficient = convertToBytes(rsa->iqmp);
+        if (riqmp)
+            secondPrimeInfo.factorCRTCoefficient = convertToBytes(riqmp);
         else {
-            auto iqmp = BIGNUMPtr(BN_mod_inverse(nullptr, rsa->q, rsa->p, context.get()));
+            auto iqmp = BIGNUMPtr(BN_mod_inverse(nullptr, rq, rp, context.get()));
             if (iqmp)
                 secondPrimeInfo.factorCRTCoefficient = convertToBytes(iqmp.get());
         }
 
         return CryptoKeyRSAComponents::createPrivateWithAdditionalData(
-            convertToBytes(rsa->n), convertToBytes(rsa->e), convertToBytes(rsa->d),
+            convertToBytes(rn), convertToBytes(re), convertToBytes(rd),
             WTFMove(firstPrimeInfo), WTFMove(secondPrimeInfo), Vector<CryptoKeyRSAComponents::PrimeInfo> { });
     }
     default:

@@ -76,8 +76,13 @@ ExceptionOr<bool> CryptoAlgorithmECDSA::platformVerify(const CryptoAlgorithmEcds
         return false;
     
     auto sig = ECDSASigPtr(ECDSA_SIG_new());
-    sig->r = BN_bin2bn(signature.data(), keySizeInBytes, sig->r);
-    sig->s = BN_bin2bn(signature.data() + keySizeInBytes, keySizeInBytes, sig->s);
+    BIGNUM* r = BN_bin2bn(signature.data(), keySizeInBytes, nullptr);
+    BIGNUM* s = BN_bin2bn(signature.data() + keySizeInBytes, keySizeInBytes, nullptr);
+    if (!sig || !r || !s || ECDSA_SIG_set0(sig.get(), r, s) != 1) {
+        BN_free(r);
+        BN_free(s);
+        return false;
+    }
 
     const EVP_MD* md = digestAlgorithm(parameters.hashIdentifier);
     if (!md)
