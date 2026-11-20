@@ -50,6 +50,7 @@ last-child
 last-of-type
 link
 matches
+modal, PseudoClassModalDialog, PseudoElementUnknown
 no-button
 not
 nth-child

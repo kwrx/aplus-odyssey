@@ -2371,6 +2371,25 @@ static RefPtr<CSSValue> consumeContent(CSSParserTokenRange& range, CSSParserCont
     RefPtr<CSSValueList> values = CSSValueList::createSpaceSeparated();
 
     do {
+        if (values->length() && range.peek().type() == DelimiterToken && range.peek().delimiter() == '/') {
+            range.consumeIncludingWhitespace();
+            do {
+                RefPtr<CSSValue> altText = consumeString(range);
+                if (!altText && range.peek().functionId() == CSSValueAttr) {
+                    altText = consumeAttr(consumeFunction(range), context);
+                }
+                if (!altText && range.peek().functionId() == CSSValueCounter) {
+                    altText = consumeCounterContent(consumeFunction(range), false);
+                }
+                if (!altText && range.peek().functionId() == CSSValueCounters) {
+                    altText = consumeCounterContent(consumeFunction(range), true);
+                }
+                if (!altText) {
+                    return nullptr;
+                }
+            } while (!range.atEnd());
+            break;
+        }
         RefPtr<CSSValue> parsedValue = consumeImage(range, context);
         if (!parsedValue)
             parsedValue = consumeIdent<CSSValueOpenQuote, CSSValueCloseQuote, CSSValueNoOpenQuote, CSSValueNoCloseQuote>(range);

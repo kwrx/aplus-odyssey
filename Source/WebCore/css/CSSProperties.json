@@ -6290,6 +6290,9 @@
         },
         "-webkit-mask-clip": {
             "codegen-properties": {
+                "aliases": [
+                    "mask-clip"
+                ],
                 "name-for-methods": "Clip",
                 "fill-layer-property": true
             },
@@ -6316,6 +6319,9 @@
         },
         "-webkit-mask-image": {
             "codegen-properties": {
+                "aliases": [
+                    "mask-image"
+                ],
                 "name-for-methods": "Image",
                 "fill-layer-property": true
             },
@@ -6329,6 +6335,9 @@
         },
         "-webkit-mask-origin": {
             "codegen-properties": {
+                "aliases": [
+                    "mask-origin"
+                ],
                 "name-for-methods": "Origin",
                 "fill-layer-property": true
             },
@@ -6342,6 +6351,9 @@
         },
         "-webkit-mask-position": {
             "codegen-properties": {
+                "aliases": [
+                    "mask-position"
+                ],
                 "longhands": [
                     "-webkit-mask-position-x",
                     "-webkit-mask-position-y"
@@ -6383,6 +6395,9 @@
         },
         "-webkit-mask-repeat": {
             "codegen-properties": {
+                "aliases": [
+                    "mask-repeat"
+                ],
                 "longhands": [
                     "-webkit-mask-repeat-x",
                     "-webkit-mask-repeat-y"
@@ -6412,6 +6427,9 @@
         },
         "-webkit-mask-size": {
             "codegen-properties": {
+                "aliases": [
+                    "mask-size"
+                ],
                 "name-for-methods": "Size",
                 "fill-layer-property": true
             },
