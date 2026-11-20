@@ -228,6 +228,15 @@ template<typename CharacterType> std::optional<ContentSecurityPolicySourceList::
         return source;
     }
 
+    if (skipExactlyIgnoringASCIICase(buffer, "'strict-dynamic'")) {
+        m_nonces.add("'strict-dynamic'"_s);
+        return source;
+    }
+
+    if (skipExactlyIgnoringASCIICase(buffer, "'report-sample'") || skipExactlyIgnoringASCIICase(buffer, "'unsafe-hashes'") || skipExactlyIgnoringASCIICase(buffer, "'wasm-unsafe-eval'")) {
+        return source;
+    }
+
     auto begin = buffer.position();
     auto beginHost = begin;
     auto beginPath = buffer.end();

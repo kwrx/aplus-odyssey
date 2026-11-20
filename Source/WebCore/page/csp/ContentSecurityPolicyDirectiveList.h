@@ -72,6 +72,7 @@ public:
     const ContentSecurityPolicyDirective* violatedDirectiveForPluginType(const String& type, const String& typeAttribute) const;
     const ContentSecurityPolicyDirective* violatedDirectiveForScript(const URL&, bool didReceiveRedirectResponse) const;
     const ContentSecurityPolicyDirective* violatedDirectiveForStyle(const URL&, bool didReceiveRedirectResponse) const;
+    const ContentSecurityPolicyDirective* violatedDirectiveForUnsafeInlineScriptAttribute() const;
 
     const ContentSecurityPolicyDirective* defaultSrc() const { return m_defaultSrc.get(); }
 
@@ -104,6 +105,9 @@ private:
     void setCSPDirective(ParsedDirective&&, std::unique_ptr<CSPDirectiveType>&);
 
     ContentSecurityPolicySourceListDirective* operativeDirective(ContentSecurityPolicySourceListDirective*) const;
+    ContentSecurityPolicySourceListDirective* scriptSrcElem() const { return m_scriptSrcElem ? m_scriptSrcElem.get() : m_scriptSrc.get(); }
+    ContentSecurityPolicySourceListDirective* scriptSrcAttr() const { return m_scriptSrcAttr ? m_scriptSrcAttr.get() : m_scriptSrc.get(); }
+    ContentSecurityPolicySourceListDirective* styleSrcElem() const { return m_styleSrcElem ? m_styleSrcElem.get() : m_styleSrc.get(); }
 
     void setEvalDisabledErrorMessage(const String& errorMessage) { m_evalDisabledErrorMessage = errorMessage; }
     void setWebAssemblyDisabledErrorMessage(const String& errorMessage) { m_webAssemblyDisabledErrorMessage = errorMessage; }
@@ -136,6 +140,11 @@ private:
     std::unique_ptr<ContentSecurityPolicySourceListDirective> m_objectSrc;
     std::unique_ptr<ContentSecurityPolicySourceListDirective> m_scriptSrc;
     std::unique_ptr<ContentSecurityPolicySourceListDirective> m_styleSrc;
+    std::unique_ptr<ContentSecurityPolicySourceListDirective> m_scriptSrcElem;
+    std::unique_ptr<ContentSecurityPolicySourceListDirective> m_scriptSrcAttr;
+    std::unique_ptr<ContentSecurityPolicySourceListDirective> m_styleSrcElem;
+    std::unique_ptr<ContentSecurityPolicySourceListDirective> m_styleSrcAttr;
+    std::unique_ptr<ContentSecurityPolicySourceListDirective> m_workerSrc;
     
     Vector<String> m_reportURIs;
     

@@ -107,6 +107,7 @@ private:
     std::optional<ScriptType> determineScriptType(LegacyTypeSupport) const;
     bool ignoresLoadRequest() const;
     bool isScriptForEventSupported() const;
+    bool isTrustedWithoutContentSecurityPolicyCheck() const;
     void dispatchLoadEventRespectingUserGestureIndicator();
 
     bool requestClassicScript(const String& sourceURL);

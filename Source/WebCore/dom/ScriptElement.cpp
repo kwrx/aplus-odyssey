@@ -169,6 +169,15 @@ std::optional<ScriptElement::ScriptType> ScriptElement::determineScriptType(Lega
 }
 
 // http://dev.w3.org/html5/spec/Overview.html#prepare-a-script
+bool ScriptElement::isTrustedWithoutContentSecurityPolicyCheck() const
+{
+    if (m_element.isInUserAgentShadowTree()) {
+        return true;
+    }
+    auto* contentSecurityPolicy = m_element.document().contentSecurityPolicy();
+    return !m_parserInserted && contentSecurityPolicy && contentSecurityPolicy->allowScriptWithNonce("'strict-dynamic'"_s);
+}
+
 bool ScriptElement::prepareScript(const TextPosition& scriptStartPosition, LegacyTypeSupport supportLegacyTypes)
 {
     if (m_alreadyStarted)
@@ -303,7 +312,7 @@ bool ScriptElement::requestClassicScript(const String& sourceURL)
             m_element.attributeWithoutSynchronization(HTMLNames::crossoriginAttr),
             scriptCharset(),
             m_element.localName(),
-            m_element.isInUserAgentShadowTree(),
+            isTrustedWithoutContentSecurityPolicyCheck(),
             hasAsyncAttribute());
 
         auto scriptURL = m_element.document().completeURL(sourceURL);
@@ -362,7 +371,7 @@ bool ScriptElement::requestModuleScript(const TextPosition& scriptStartPosition)
             crossOriginMode,
             scriptCharset(),
             m_element.localName(),
-            m_element.isInUserAgentShadowTree());
+            isTrustedWithoutContentSecurityPolicyCheck());
         m_loadableScript = WTFMove(script);
         if (auto* frame = m_element.document().frame()) {
             auto& script = downcast<LoadableModuleScript>(*m_loadableScript.get());

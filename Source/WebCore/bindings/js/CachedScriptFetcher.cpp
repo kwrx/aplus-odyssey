@@ -43,16 +43,16 @@ Ref<CachedScriptFetcher> CachedScriptFetcher::create(const String& charset)
 
 CachedResourceHandle<CachedScript> CachedScriptFetcher::requestModuleScript(Document& document, const URL& sourceURL, String&& integrity) const
 {
-    return requestScriptWithCache(document, sourceURL, String { }, WTFMove(integrity), { });
+    return requestScriptWithCache(document, sourceURL, String { }, WTFMove(integrity), { }, true);
 }
 
-CachedResourceHandle<CachedScript> CachedScriptFetcher::requestScriptWithCache(Document& document, const URL& sourceURL, const String& crossOriginMode, String&& integrity, std::optional<ResourceLoadPriority> resourceLoadPriority) const
+CachedResourceHandle<CachedScript> CachedScriptFetcher::requestScriptWithCache(Document& document, const URL& sourceURL, const String& crossOriginMode, String&& integrity, std::optional<ResourceLoadPriority> resourceLoadPriority, bool isModuleRequest) const
 {
     if (!document.settings().isScriptEnabled())
         return nullptr;
 
     ASSERT(document.contentSecurityPolicy());
-    bool hasKnownNonce = document.contentSecurityPolicy()->allowScriptWithNonce(m_nonce, m_isInUserAgentShadowTree);
+    bool hasKnownNonce = document.contentSecurityPolicy()->allowScriptWithNonce(m_nonce, m_isInUserAgentShadowTree) || (isModuleRequest && document.contentSecurityPolicy()->allowScriptWithNonce("'strict-dynamic'"_s));
     ResourceLoaderOptions options = CachedResourceLoader::defaultCachedResourceOptions();
     options.contentSecurityPolicyImposition = hasKnownNonce ? ContentSecurityPolicyImposition::SkipPolicyCheck : ContentSecurityPolicyImposition::DoPolicyCheck;
     options.sameOriginDataURLFlag = SameOriginDataURLFlag::Set;
