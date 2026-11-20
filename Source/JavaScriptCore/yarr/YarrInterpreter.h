@@ -107,12 +107,14 @@ struct ByteTerm {
     Type type;
     bool m_capture : 1;
     bool m_invert : 1;
+    bool m_switchesDirection : 1;
     unsigned inputPosition;
 
     ByteTerm(UChar32 ch, unsigned inputPos, unsigned frameLocation, Checked<unsigned> quantityCount, QuantifierType quantityType)
         : frameLocation(frameLocation)
         , m_capture(false)
         , m_invert(false)
+        , m_switchesDirection(false)
     {
         atom.patternCharacter = ch;
         atom.quantityType = quantityType;
@@ -137,6 +139,7 @@ struct ByteTerm {
         : frameLocation(frameLocation)
         , m_capture(false)
         , m_invert(false)
+        , m_switchesDirection(false)
     {
         switch (quantityType) {
         case QuantifierType::FixedCount:
@@ -162,6 +165,7 @@ struct ByteTerm {
         : type(ByteTerm::Type::CharacterClass)
         , m_capture(false)
         , m_invert(invert)
+        , m_switchesDirection(false)
     {
         atom.characterClass = characterClass;
         atom.quantityType = QuantifierType::FixedCount;
@@ -174,6 +178,7 @@ struct ByteTerm {
         : type(type)
         , m_capture(capture)
         , m_invert(false)
+        , m_switchesDirection(false)
     {
         atom.subpatternId = subpatternId;
         atom.parenthesesDisjunction = parenthesesInfo;
@@ -187,6 +192,7 @@ struct ByteTerm {
         : type(type)
         , m_capture(false)
         , m_invert(invert)
+        , m_switchesDirection(false)
     {
         atom.quantityType = QuantifierType::FixedCount;
         atom.quantityMinCount = 1;
@@ -197,6 +203,7 @@ struct ByteTerm {
         : type(type)
         , m_capture(capture)
         , m_invert(invert)
+        , m_switchesDirection(false)
     {
         atom.subpatternId = subpatternId;
         atom.quantityType = QuantifierType::FixedCount;
@@ -325,6 +332,11 @@ struct ByteTerm {
     bool capture()
     {
         return m_capture;
+    }
+
+    bool switchesDirection()
+    {
+        return m_switchesDirection;
     }
 };
 

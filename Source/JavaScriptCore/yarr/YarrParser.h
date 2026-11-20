@@ -641,6 +641,18 @@ private:
                 break;
 
             case '<': {
+                if (tryConsume('=')) {
+                    m_delegate.atomParentheticalAssertionBegin(false, true);
+                    type = ParenthesesType::LookbehindAssertion;
+                    break;
+                }
+
+                if (tryConsume('!')) {
+                    m_delegate.atomParentheticalAssertionBegin(true, true);
+                    type = ParenthesesType::LookbehindAssertion;
+                    break;
+                }
+
                 auto groupName = tryConsumeGroupName();
                 if (hasError(m_errorCode))
                     break;
@@ -696,7 +708,7 @@ private:
 
         m_delegate.atomParenthesesEnd();
         auto type = m_parenthesesStack.takeLast();
-        return type == ParenthesesType::Subpattern || !m_isUnicode;
+        return type == ParenthesesType::Subpattern || (type == ParenthesesType::Assertion && !m_isUnicode);
     }
 
     /*
@@ -1202,7 +1214,7 @@ private:
         return std::nullopt;
     }
 
-    enum class ParenthesesType : uint8_t { Subpattern, Assertion };
+    enum class ParenthesesType : uint8_t { Subpattern, Assertion, LookbehindAssertion };
 
     Delegate& m_delegate;
     ErrorCode m_errorCode { ErrorCode::NoError };
@@ -1245,7 +1257,7 @@ private:
  *    void atomCharacterClassBuiltIn(BuiltInCharacterClassID classID, bool invert)
  *    void atomCharacterClassEnd()
  *    void atomParenthesesSubpatternBegin(bool capture = true, std::optional<String> groupName);
- *    void atomParentheticalAssertionBegin(bool invert = false);
+ *    void atomParentheticalAssertionBegin(bool invert = false, bool backward = false);
  *    void atomParenthesesEnd();
  *    void atomBackReference(unsigned subpatternId);
  *    void atomNamedBackReference(const String& subpatternName);

@@ -452,6 +452,7 @@ public:
     {
         m_pattern.resetForReparsing();
         m_characterClassConstructor.reset();
+        m_namedForwardReferences.clear();
 
         auto body = makeUnique<PatternDisjunction>();
         m_pattern.m_body = body.get();
@@ -461,7 +462,7 @@ public:
 
     void assertionBOL()
     {
-        if (!m_alternative->m_terms.size() && !m_invertParentheticalAssertion) {
+        if (!m_alternative->m_terms.size() && !m_invertParentheticalAssertion && !isInsideLookbehind()) {
             m_alternative->m_startsWithBOL = true;
             m_alternative->m_containsBOL = true;
             m_pattern.m_containsBOL = true;
@@ -601,10 +602,17 @@ public:
         m_pattern.m_disjunctions.append(WTFMove(parenthesesDisjunction));
     }
 
-    void atomParentheticalAssertionBegin(bool invert = false)
+    void atomParentheticalAssertionBegin(bool invert = false, bool backward = false)
     {
+        PatternTerm* enclosingAssertion = enclosingParentheticalAssertion();
+        bool enclosingBackward = enclosingAssertion && enclosingAssertion->parentheses.isBackward;
         auto parenthesesDisjunction = makeUnique<PatternDisjunction>(m_alternative);
-        m_alternative->m_terms.append(PatternTerm(PatternTerm::Type::ParentheticalAssertion, m_pattern.m_numSubpatterns + 1, parenthesesDisjunction.get(), false, invert));
+        PatternTerm term(PatternTerm::Type::ParentheticalAssertion, m_pattern.m_numSubpatterns + 1, parenthesesDisjunction.get(), false, invert);
+        term.parentheses.isBackward = backward;
+        term.parentheses.switchesDirection = backward != enclosingBackward;
+        if (backward)
+            m_pattern.m_containsLookbehinds = true;
+        m_alternative->m_terms.append(term);
         m_alternative = parenthesesDisjunction->addNewAlternative();
         m_invertParentheticalAssertion = invert;
         m_pattern.m_disjunctions.append(WTFMove(parenthesesDisjunction));
@@ -619,6 +627,13 @@ public:
         m_alternative = m_alternative->m_parent->m_parent;
 
         PatternTerm& lastTerm = m_alternative->lastTerm();
+
+        if (lastTerm.type == PatternTerm::Type::ParentheticalAssertion && lastTerm.parentheses.isBackward) {
+            lastTerm.parentheses.lastSubpatternId = m_pattern.m_numSubpatterns;
+            reverseLookbehindDisjunction(parenthesesDisjunction, lastTerm.parentheses.subpatternId, lastTerm.parentheses.lastSubpatternId);
+            m_invertParentheticalAssertion = false;
+            return;
+        }
 
         unsigned numParenAlternatives = parenthesesDisjunction->m_alternatives.size();
         unsigned numBOLAnchoredAlts = 0;
@@ -646,7 +661,7 @@ public:
         m_pattern.m_containsBackreferences = true;
 
         if (subpatternId > m_pattern.m_numSubpatterns) {
-            m_alternative->m_terms.append(PatternTerm::ForwardReference());
+            m_alternative->m_terms.append(PatternTerm::ForwardReference(subpatternId));
             return;
         }
 
@@ -673,9 +688,81 @@ public:
         atomBackReference(m_pattern.m_namedGroupToParenIndex.get(subpatternName));
     }
 
-    void atomNamedForwardReference(const String&)
+    void atomNamedForwardReference(const String& subpatternName)
     {
-        m_alternative->m_terms.append(PatternTerm::ForwardReference());
+        m_alternative->m_terms.append(PatternTerm::ForwardReference(namedForwardReferenceTag | m_namedForwardReferences.size()));
+        m_namedForwardReferences.append(subpatternName);
+    }
+
+    PatternTerm* enclosingParentheticalAssertion()
+    {
+        for (PatternAlternative* alternative = m_alternative; alternative->m_parent->m_parent;) {
+            alternative = alternative->m_parent->m_parent;
+            PatternTerm& term = alternative->lastTerm();
+            if (term.type == PatternTerm::Type::ParentheticalAssertion)
+                return &term;
+        }
+        return nullptr;
+    }
+
+    bool isInsideLookbehind()
+    {
+        for (PatternAlternative* alternative = m_alternative; alternative->m_parent->m_parent;) {
+            alternative = alternative->m_parent->m_parent;
+            PatternTerm& term = alternative->lastTerm();
+            if (term.type == PatternTerm::Type::ParentheticalAssertion && term.parentheses.isBackward)
+                return true;
+        }
+        return false;
+    }
+
+    unsigned forwardReferenceSubpatternId(unsigned encodedId)
+    {
+        if (!(encodedId & namedForwardReferenceTag))
+            return encodedId;
+        unsigned index = encodedId & ~namedForwardReferenceTag;
+        if (index >= m_namedForwardReferences.size())
+            return 0;
+        auto iterator = m_pattern.m_namedGroupToParenIndex.find(m_namedForwardReferences[index]);
+        if (iterator == m_pattern.m_namedGroupToParenIndex.end())
+            return 0;
+        return iterator->value;
+    }
+
+    void reverseLookbehindDisjunction(PatternDisjunction* disjunction, unsigned firstSubpatternId, unsigned lastSubpatternId)
+    {
+        if (UNLIKELY(!isSafeToRecurse())) {
+            m_error = ErrorCode::PatternTooLarge;
+            return;
+        }
+
+        for (auto& alternative : disjunction->m_alternatives) {
+            alternative->m_terms.reverse();
+            for (auto& term : alternative->m_terms) {
+                switch (term.type) {
+                case PatternTerm::Type::ParenthesesSubpattern:
+                    reverseLookbehindDisjunction(term.parentheses.disjunction, firstSubpatternId, lastSubpatternId);
+                    break;
+                case PatternTerm::Type::BackReference:
+                    if (term.backReferenceSubpatternId >= firstSubpatternId && term.backReferenceSubpatternId <= lastSubpatternId) {
+                        term.type = PatternTerm::Type::ForwardReference;
+                        term.backReferenceSubpatternId = 0;
+                    }
+                    break;
+                case PatternTerm::Type::ForwardReference: {
+                    unsigned subpatternId = forwardReferenceSubpatternId(term.backReferenceSubpatternId);
+                    if (subpatternId && subpatternId >= firstSubpatternId && subpatternId <= lastSubpatternId) {
+                        term.type = PatternTerm::Type::BackReference;
+                        term.backReferenceSubpatternId = subpatternId;
+                        m_pattern.m_containsBackreferences = true;
+                    }
+                    break;
+                }
+                default:
+                    break;
+                }
+            }
+        }
     }
     
     // deep copy the argument disjunction.  If filterStartsWithBOL is true,
@@ -884,7 +971,7 @@ public:
             case PatternTerm::Type::ParentheticalAssertion:
                 term.inputPosition = currentInputPosition;
                 term.frameLocation = currentCallFrameSize;
-                error = setupDisjunctionOffsets(term.parentheses.disjunction, currentCallFrameSize + YarrStackSpaceForBackTrackInfoParentheticalAssertion, currentInputPosition, currentCallFrameSize);
+                error = setupDisjunctionOffsets(term.parentheses.disjunction, currentCallFrameSize + YarrStackSpaceForBackTrackInfoParentheticalAssertion, term.parentheses.switchesDirection ? CheckedUint32(0) : currentInputPosition, currentCallFrameSize);
                 if (hasError(error))
                     return error;
                 break;
@@ -1106,6 +1193,8 @@ private:
     ErrorCode m_error { ErrorCode::NoError };
     bool m_invertCharacterClass;
     bool m_invertParentheticalAssertion { false };
+    Vector<String> m_namedForwardReferences;
+    static constexpr unsigned namedForwardReferenceTag = 0x80000000u;
 };
 
 ErrorCode YarrPattern::compile(const String& patternString)
@@ -1140,6 +1229,7 @@ ErrorCode YarrPattern::compile(const String& patternString)
 YarrPattern::YarrPattern(const String& pattern, OptionSet<Flags> flags, ErrorCode& error)
     : m_containsBackreferences(false)
     , m_containsBOL(false)
+    , m_containsLookbehinds(false)
     , m_containsUnsignedLengthPattern(false)
     , m_hasCopiedParenSubexpressions(false)
     , m_saveInitialStartValue(false)

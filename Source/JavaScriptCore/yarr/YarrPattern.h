@@ -157,6 +157,8 @@ struct PatternTerm {
             unsigned lastSubpatternId;
             bool isCopy;
             bool isTerminal;
+            bool isBackward;
+            bool switchesDirection;
         } parentheses;
         struct {
             bool bolAnchor : 1;
@@ -195,6 +197,8 @@ struct PatternTerm {
         parentheses.subpatternId = subpatternId;
         parentheses.isCopy = false;
         parentheses.isTerminal = false;
+        parentheses.isBackward = false;
+        parentheses.switchesDirection = false;
         quantityType = QuantifierType::FixedCount;
         quantityMinCount = quantityMaxCount = 1;
     }
@@ -229,9 +233,11 @@ struct PatternTerm {
         quantityMinCount = quantityMaxCount = 1;
     }
     
-    static PatternTerm ForwardReference()
+    static PatternTerm ForwardReference(unsigned subpatternId = 0)
     {
-        return PatternTerm(Type::ForwardReference);
+        PatternTerm term(Type::ForwardReference);
+        term.backReferenceSubpatternId = subpatternId;
+        return term;
     }
 
     static PatternTerm BOL()
@@ -396,6 +402,7 @@ struct YarrPattern {
 
         m_containsBackreferences = false;
         m_containsBOL = false;
+        m_containsLookbehinds = false;
         m_containsUnsignedLengthPattern = false;
         m_hasCopiedParenSubexpressions = false;
         m_saveInitialStartValue = false;
@@ -532,6 +539,7 @@ struct YarrPattern {
 
     bool m_containsBackreferences : 1;
     bool m_containsBOL : 1;
+    bool m_containsLookbehinds : 1;
     bool m_containsUnsignedLengthPattern : 1;
     bool m_hasCopiedParenSubexpressions : 1;
     bool m_saveInitialStartValue : 1;

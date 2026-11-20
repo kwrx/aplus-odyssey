@@ -4176,6 +4176,11 @@ public:
         }
 #endif
 
+        if (m_pattern.m_containsLookbehinds) {
+            codeBlock.setFallBackWithFailureReason(JITFailureReason::Lookbehind);
+            return;
+        }
+
         if (m_pattern.m_containsBackreferences
 #if ENABLE(YARR_JIT_BACKREFERENCES)
             && (m_compileMode == JITCompileMode::MatchOnly || (m_pattern.ignoreCase() && m_charSize != CharSize::Char8))
@@ -4585,6 +4590,9 @@ static void dumpCompileFailure(JITFailureReason failure)
         break;
     case JITFailureReason::ForwardReference:
         dataLog("Can't JIT a pattern containing forward references\n");
+        break;
+    case JITFailureReason::Lookbehind:
+        dataLog("Can't JIT a pattern containing lookbehind assertions\n");
         break;
     case JITFailureReason::VariableCountedParenthesisWithNonZeroMinimum:
         dataLog("Can't JIT a pattern containing a variable counted parenthesis with a non-zero minimum\n");
