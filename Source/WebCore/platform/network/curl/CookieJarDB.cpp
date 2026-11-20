@@ -541,8 +541,14 @@ bool CookieJarDB::setCookie(const URL& firstParty, const URL& url, const String&
     if (!cookie)
         return false;
 
-    if (cookie->domain.isEmpty())
-        cookie->domain = "." + url.host().convertToASCIILowercase(); // Original Odyssey logic
+    if (cookie->domain.isEmpty()) {
+        String host = url.host().convertToASCIILowercase();
+        if (CookieUtil::isIPAddress(host) || !host.contains('.')) {
+            cookie->domain = host;
+        } else {
+            cookie->domain = "." + host;
+        }
+    }
 
     if (cookie->path.isEmpty())
         cookie->path = CookieUtil::defaultPathForURL(url);

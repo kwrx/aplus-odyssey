@@ -223,7 +223,17 @@ void SQLiteDatabase::checkpoint(CheckpointMode mode)
 
 void SQLiteDatabase::useWALJournalMode()
 {
-#if OS(MORPHOS)
+#if OS(APLUS)
+    if (auto statement = prepareStatement("PRAGMA locking_mode=EXCLUSIVE;"_s)) {
+        statement->step();
+    }
+    if (auto statement = prepareStatement("PRAGMA journal_mode=DELETE;"_s)) {
+        statement->step();
+    }
+    if (auto statement = prepareStatement("PRAGMA locking_mode=NORMAL;"_s)) {
+        statement->step();
+    }
+#elif OS(MORPHOS)
 	auto syncStatement = prepareStatement("PRAGMA synchronous=off;"_s);
 	if (syncStatement)
 		syncStatement->step();

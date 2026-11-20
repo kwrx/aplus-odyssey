@@ -27,7 +27,16 @@
 
 #include "WebDatabaseProvider.h"
 
+#if OS(APLUS)
+#include "AplusBrowserHost.h"
+#include <wtf/text/StringConcatenate.h>
+#endif
+
 String WebDatabaseProvider::indexedDatabaseDirectoryPath()
 {
+#if OS(APLUS)
+    return makeString(aplusConfigDir(), "/IndexedDB");
+#else
     return String("PROGDIR:Conf/IndexedDB");
+#endif
 }
