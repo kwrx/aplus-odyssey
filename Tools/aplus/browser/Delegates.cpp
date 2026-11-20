@@ -183,7 +183,8 @@ public:
 
     void consoleMessage(WebFrame*, int line, int column, const char* message) override
     {
-        if (getenv("ODYSSEY_CONSOLE")) {
+        static const bool enabled = getenv("ODYSSEY_CONSOLE");
+        if (enabled) {
             fprintf(stderr, "odyssey: console:%d:%d: %s\n", line, column, message ? message : "");
         }
     }
