@@ -113,7 +113,7 @@ const Vector<RefPtr<const StyleRule>>& ElementRuleCollector::matchedRuleList() c
 
 inline void ElementRuleCollector::addMatchedRule(const RuleData& ruleData, unsigned specificity, const MatchRequest& matchRequest)
 {
-    auto cascadeLayerOrder = matchRequest.ruleSet ? matchRequest.ruleSet->cascadeLayerOrderFor(ruleData) : 0;
+    auto cascadeLayerOrder = matchRequest.ruleSet ? matchRequest.ruleSet->cascadeLayerOrderFor(ruleData) : std::numeric_limits<unsigned>::max();
     m_matchedRules.append({ &ruleData, specificity, matchRequest.styleScopeOrdinal, cascadeLayerOrder });
 }
 
@@ -203,7 +203,8 @@ void ElementRuleCollector::transferMatchedRules(DeclarationOrigin declarationOri
             &matchedRule.ruleData->styleRule().properties(),
             static_cast<uint16_t>(matchedRule.ruleData->linkMatchType()),
             static_cast<uint16_t>(matchedRule.ruleData->propertyAllowlistType()),
-            matchedRule.styleScopeOrdinal
+            matchedRule.styleScopeOrdinal,
+            matchedRule.cascadeLayerOrder
         }, declarationOrigin);
     }
 }

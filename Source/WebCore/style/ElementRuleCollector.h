@@ -70,6 +70,7 @@ struct MatchedProperties {
     uint16_t linkMatchType { SelectorChecker::MatchAll };
     uint16_t allowlistType { PropertyAllowlistNone };
     ScopeOrdinal styleScopeOrdinal { ScopeOrdinal::Element };
+    unsigned cascadeLayerOrder { std::numeric_limits<unsigned>::max() };
 };
 
 struct MatchResult {

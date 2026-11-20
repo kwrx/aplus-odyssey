@@ -235,10 +235,10 @@ inline const RuleSet::RuleDataVector* RuleSet::tagRules(const AtomString& key, b
 inline unsigned RuleSet::cascadeLayerOrderFor(const RuleData& ruleData) const
 {
     if (m_cascadeLayerIdentifierForRulePosition.size() <= ruleData.position())
-        return 0;
+        return std::numeric_limits<unsigned>::max();
     auto identifier = m_cascadeLayerIdentifierForRulePosition[ruleData.position()];
     if (!identifier)
-        return 0;
+        return std::numeric_limits<unsigned>::max();
     return cascadeLayerForIdentifier(identifier).order;
 }
 

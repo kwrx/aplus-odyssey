@@ -327,9 +327,11 @@ void PropertyCascade::addImportantMatches(CascadeLevel cascadeLevel)
     struct IndexAndOrdinal {
         unsigned index;
         ScopeOrdinal ordinal;
+        unsigned cascadeLayerOrder;
     };
     Vector<IndexAndOrdinal> importantMatches;
     bool hasMatchesFromOtherScopes = false;
+    bool hasLayeredMatches = false;
 
     auto& matchedDeclarations = declarationsForCascadeLevel(m_matchResult, cascadeLevel);
 
@@ -339,7 +341,11 @@ void PropertyCascade::addImportantMatches(CascadeLevel cascadeLevel)
         if (!hasImportantProperties(*matchedProperties.properties))
             continue;
 
-        importantMatches.append({ i, matchedProperties.styleScopeOrdinal });
+        importantMatches.append({ i, matchedProperties.styleScopeOrdinal, matchedProperties.cascadeLayerOrder });
+
+        if (matchedProperties.cascadeLayerOrder != std::numeric_limits<unsigned>::max()) {
+            hasLayeredMatches = true;
+        }
 
         if (matchedProperties.styleScopeOrdinal != ScopeOrdinal::Element)
             hasMatchesFromOtherScopes = true;
@@ -347,6 +353,12 @@ void PropertyCascade::addImportantMatches(CascadeLevel cascadeLevel)
 
     if (importantMatches.isEmpty())
         return;
+
+    if (hasLayeredMatches) {
+        std::stable_sort(importantMatches.begin(), importantMatches.end(), [] (const IndexAndOrdinal& a, const IndexAndOrdinal& b) {
+            return a.cascadeLayerOrder > b.cascadeLayerOrder;
+        });
+    }
 
     if (hasMatchesFromOtherScopes) {
         // For !important properties a later shadow tree wins.
