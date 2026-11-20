@@ -48,6 +48,7 @@
 #include "SVGScriptElement.h"
 #include "ScriptController.h"
 #include "ScriptDisallowedScope.h"
+#include "ScriptModuleLoader.h"
 #include "ScriptRunner.h"
 #include "ScriptSourceCode.h"
 #include "ScriptableDocumentParser.h"
@@ -189,6 +190,14 @@ bool ScriptElement::prepareScript(const TextPosition& scriptStartPosition, Legac
 
     if (!m_element.isConnected())
         return false;
+
+    if (equalLettersIgnoringASCIICase(stripLeadingAndTrailingHTMLSpaces(typeAttributeValue()), "importmap")) {
+        if (!hasSourceAttribute()) {
+            auto& document = m_element.document();
+            document.moduleLoader().registerImportMap(sourceText, document.baseURL());
+        }
+        return false;
+    }
 
     ScriptType scriptType = ScriptType::Classic;
     if (std::optional<ScriptType> result = determineScriptType(supportLegacyTypes))

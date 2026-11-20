@@ -63,14 +63,18 @@ public:
     JSC::JSInternalPromise* importModule(JSC::JSGlobalObject*, JSC::JSModuleLoader*, JSC::JSString*, JSC::JSValue parameters, const JSC::SourceOrigin&);
     JSC::JSObject* createImportMetaProperties(JSC::JSGlobalObject*, JSC::JSModuleLoader*, JSC::JSValue, JSC::JSModuleRecord*, JSC::JSValue);
 
+    void registerImportMap(const String& source, const URL& baseURL);
+
 private:
     void notifyFinished(ModuleScriptLoader&, URL&&, Ref<DeferredPromise>) final;
 
     URL moduleURL(JSC::JSGlobalObject&, JSC::JSValue);
     URL responseURLFromRequestURL(JSC::JSGlobalObject&, JSC::JSValue);
+    URL resolveWithImportMap(const String& specifier, const URL& baseURL) const;
 
     ScriptExecutionContext& m_context;
     HashMap<String, URL> m_requestURLToResponseURLMap;
+    HashMap<String, URL> m_importMap;
     HashSet<Ref<ModuleScriptLoader>> m_loaders;
     OwnerType m_ownerType;
 };

@@ -33,6 +33,8 @@ class HTMLScriptElement final : public HTMLElement, public ScriptElement {
 public:
     static Ref<HTMLScriptElement> create(const QualifiedName&, Document&, bool wasInsertedByParser, bool alreadyStarted = false);
 
+    static bool supports(const String& type) { return type == "classic" || type == "module" || type == "importmap"; }
+
     String text() const { return scriptContent(); }
     WEBCORE_EXPORT void setText(const String&);
 

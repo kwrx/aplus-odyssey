@@ -34,4 +34,6 @@
     [CEReactions=NotNeeded, Reflect] attribute boolean noModule;
     [CEReactions=NotNeeded, Reflect, EnabledBySetting=SubresourceIntegrity] attribute DOMString integrity;
     [EnabledBySetting=ReferrerPolicyAttribute, ImplementedAs=referrerPolicyForBindings, CEReactions=NotNeeded] attribute DOMString referrerPolicy;
+
+    static boolean supports(DOMString type);
 };

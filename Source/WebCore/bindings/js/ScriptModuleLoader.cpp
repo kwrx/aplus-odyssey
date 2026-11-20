@@ -26,6 +26,8 @@
 #include "config.h"
 #include "ScriptModuleLoader.h"
 
+#include <wtf/JSONValues.h>
+
 #include "CachedModuleScriptLoader.h"
 #include "CachedScript.h"
 #include "CachedScriptFetcher.h"
@@ -100,6 +102,99 @@ static Expected<URL, String> resolveModuleSpecifier(ScriptExecutionContext& cont
     return result;
 }
 
+static bool isRelativeSpecifier(const String& specifier)
+{
+    return specifier.startsWith('/') || specifier.startsWith("./") || specifier.startsWith("../");
+}
+
+void ScriptModuleLoader::registerImportMap(const String& source, const URL& baseURL)
+{
+    auto value = JSON::Value::parseJSON(source);
+    if (!value) {
+        return;
+    }
+
+    auto object = value->asObject();
+    if (!object) {
+        return;
+    }
+
+    auto imports = object->getObject("imports"_s);
+    if (!imports) {
+        return;
+    }
+
+    for (auto& entry : *imports) {
+        String target = entry.value->asString();
+        if (target.isNull()) {
+            continue;
+        }
+
+        URL address(baseURL, target);
+        if (!address.isValid()) {
+            continue;
+        }
+
+        String key = entry.key;
+        if (isRelativeSpecifier(key)) {
+            key = URL(baseURL, key).string();
+        } else {
+            URL absolute(URL(), key);
+            if (absolute.isValid()) {
+                key = absolute.string();
+            }
+        }
+
+        if (key.isEmpty() || (key.endsWith('/') && !address.string().endsWith('/'))) {
+            continue;
+        }
+
+        m_importMap.add(key, address);
+    }
+}
+
+URL ScriptModuleLoader::resolveWithImportMap(const String& specifier, const URL& baseURL) const
+{
+    if (m_importMap.isEmpty()) {
+        return { };
+    }
+
+    String key = specifier;
+    if (isRelativeSpecifier(specifier)) {
+        key = URL(baseURL, specifier).string();
+    } else {
+        URL absolute(URL(), specifier);
+        if (absolute.isValid()) {
+            key = absolute.string();
+        }
+    }
+
+    auto it = m_importMap.find(key);
+    if (it != m_importMap.end()) {
+        return it->value;
+    }
+
+    String bestPrefix;
+    URL bestTarget;
+    for (auto& entry : m_importMap) {
+        if (entry.key.endsWith('/') && key.startsWith(entry.key) && entry.key.length() > bestPrefix.length()) {
+            bestPrefix = entry.key;
+            bestTarget = entry.value;
+        }
+    }
+
+    if (bestPrefix.isEmpty()) {
+        return { };
+    }
+
+    URL result(bestTarget, key.substring(bestPrefix.length()));
+    if (!result.isValid() || !result.string().startsWith(bestTarget.string())) {
+        return { };
+    }
+
+    return result;
+}
+
 JSC::Identifier ScriptModuleLoader::resolve(JSC::JSGlobalObject* jsGlobalObject, JSC::JSModuleLoader*, JSC::JSValue moduleNameValue, JSC::JSValue importerModuleKey, JSC::JSValue)
 {
     JSC::VM& vm = jsGlobalObject->vm();
@@ -121,6 +216,11 @@ JSC::Identifier ScriptModuleLoader::resolve(JSC::JSGlobalObject* jsGlobalObject,
 
     URL baseURL = responseURLFromRequestURL(*jsGlobalObject, importerModuleKey);
     RETURN_IF_EXCEPTION(scope, { });
+
+    URL mapped = resolveWithImportMap(specifier, baseURL);
+    if (mapped.isValid()) {
+        return JSC::Identifier::fromString(vm, mapped.string());
+    }
 
     auto result = resolveModuleSpecifier(m_context, m_ownerType, specifier, baseURL);
     if (!result) {
@@ -328,6 +428,11 @@ JSC::JSInternalPromise* ScriptModuleLoader::importModule(JSC::JSGlobalObject* js
     ASSERT(scriptFetcher);
 
     auto specifier = moduleName->value(jsGlobalObject);
+    URL mapped = resolveWithImportMap(specifier, baseURL);
+    if (mapped.isValid()) {
+        return JSC::importModule(jsGlobalObject, JSC::Identifier::fromString(vm, mapped.string()), parameters, JSC::JSScriptFetcher::create(vm, WTFMove(scriptFetcher)));
+    }
+
     auto result = resolveModuleSpecifier(m_context, m_ownerType, specifier, baseURL);
     if (!result)
         return rejectPromise(globalObject, TypeError, result.error());
