@@ -29,6 +29,8 @@ interface mixin DocumentOrShadowRoot {
     // Extensions from HTML (https://html.spec.whatwg.org/multipage/dom.html#documentorshadowroot)
     readonly attribute Element? activeElement;
 
+    attribute FrozenArray<CSSStyleSheet> adoptedStyleSheets;
+
     // FIXME: getSelection is currently defined only to be on Document in the Selection API spec
     // https://w3c.github.io/selection-api/#extensions-to-document-interface, but
     // previously had been defined to be on DocumentOrShadowRoot in the deprecated Shadow DOM spec

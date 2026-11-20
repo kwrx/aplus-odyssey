@@ -28,6 +28,7 @@
 #include "TreeScope.h"
 
 #include "Attr.h"
+#include "CSSStyleSheet.h"
 #include "DOMWindow.h"
 #include "ElementIterator.h"
 #include "FocusController.h"
@@ -47,13 +48,14 @@
 #include "RadioButtonGroups.h"
 #include "RenderView.h"
 #include "Settings.h"
+#include "StyleScope.h"
 #include "ShadowRoot.h"
 #include <wtf/text/CString.h>
 
 namespace WebCore {
 
 struct SameSizeAsTreeScope {
-    void* pointers[10];
+    void* pointers[12];
 };
 
 COMPILE_ASSERT(sizeof(TreeScope) == sizeof(SameSizeAsTreeScope), treescope_should_stay_small);
@@ -78,7 +80,42 @@ TreeScope::TreeScope(Document& document)
     document.setTreeScope(*this);
 }
 
-TreeScope::~TreeScope() = default;
+TreeScope::~TreeScope()
+{
+    for (auto& sheet : m_adoptedStyleSheets) {
+        sheet->removeAdoptingTreeScope(*this);
+    }
+}
+
+Style::Scope& TreeScope::adoptedStyleSheetsScope()
+{
+    if (is<ShadowRoot>(m_rootNode)) {
+        return downcast<ShadowRoot>(m_rootNode).styleScope();
+    }
+    return documentScope().styleScope();
+}
+
+ExceptionOr<void> TreeScope::setAdoptedStyleSheets(Vector<RefPtr<CSSStyleSheet>>&& sheets)
+{
+    for (auto& sheet : sheets) {
+        if (!sheet || !sheet->isConstructed() || sheet->constructorDocument() != &documentScope()) {
+            return Exception { NotAllowedError, "Sharing constructed stylesheets in multiple documents is not allowed"_s };
+        }
+    }
+
+    for (auto& sheet : m_adoptedStyleSheets) {
+        sheet->removeAdoptingTreeScope(*this);
+    }
+
+    m_adoptedStyleSheets = WTFMove(sheets);
+
+    for (auto& sheet : m_adoptedStyleSheets) {
+        sheet->addAdoptingTreeScope(*this);
+    }
+
+    adoptedStyleSheetsScope().didChangeActiveStyleSheetCandidates();
+    return { };
+}
 
 void TreeScope::destroyTreeScopeData()
 {

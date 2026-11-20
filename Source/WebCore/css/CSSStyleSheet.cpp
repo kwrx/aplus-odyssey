@@ -27,6 +27,8 @@
 #include "CSSRuleList.h"
 #include "Document.h"
 #include "HTMLLinkElement.h"
+#include "JSCSSStyleSheet.h"
+#include "JSDOMPromiseDeferred.h"
 #include "HTMLStyleElement.h"
 #include "Logging.h"
 #include "MediaList.h"
@@ -37,6 +39,7 @@
 #include "StyleRule.h"
 #include "StyleScope.h"
 #include "StyleSheetContents.h"
+#include "TreeScope.h"
 
 #include <wtf/HexNumber.h>
 #include <wtf/text/StringBuilder.h>
@@ -80,6 +83,62 @@ Ref<CSSStyleSheet> CSSStyleSheet::create(Ref<StyleSheetContents>&& sheet, CSSImp
 Ref<CSSStyleSheet> CSSStyleSheet::create(Ref<StyleSheetContents>&& sheet, Node& ownerNode, const std::optional<bool>& isCleanOrigin)
 {
     return adoptRef(*new CSSStyleSheet(WTFMove(sheet), ownerNode, TextPosition(), false, isCleanOrigin));
+}
+
+Ref<CSSStyleSheet> CSSStyleSheet::create(Document& document, const Init& init)
+{
+    URL baseURL = init.baseURL.isNull() ? document.baseURL() : document.completeURL(init.baseURL);
+    auto contents = StyleSheetContents::create(String(), CSSParserContext(document, baseURL));
+    auto sheet = adoptRef(*new CSSStyleSheet(WTFMove(contents), nullptr));
+    sheet->m_isConstructed = true;
+    sheet->m_constructorDocument = makeWeakPtr(document);
+    sheet->m_isOriginClean = true;
+    sheet->m_isDisabled = init.disabled;
+    if (!init.media.isEmpty()) {
+        sheet->m_mediaQueries = MediaQuerySet::create(init.media, MediaQueryParserContext(document));
+    }
+    return sheet;
+}
+
+ExceptionOr<void> CSSStyleSheet::replaceSync(String&& text)
+{
+    if (!m_isConstructed) {
+        return Exception { NotAllowedError, "This stylesheet was not created with the CSSStyleSheet constructor"_s };
+    }
+
+    clearChildRuleCSSOMWrappers();
+    m_contents->setMutable();
+    m_contents->clearRules();
+    m_contents->parseString(text);
+    m_mutatedRules = true;
+    didChangeAdoptedStyleSheet(false);
+    return { };
+}
+
+void CSSStyleSheet::replace(String&& text, Ref<DeferredPromise>&& promise)
+{
+    auto result = replaceSync(WTFMove(text));
+    if (result.hasException()) {
+        promise->reject(result.releaseException());
+        return;
+    }
+    promise->resolve<IDLInterface<CSSStyleSheet>>(*this);
+}
+
+Document* CSSStyleSheet::constructorDocument() const
+{
+    return m_constructorDocument.get();
+}
+
+void CSSStyleSheet::didChangeAdoptedStyleSheet(bool activeSetChanged)
+{
+    for (auto* treeScope : m_adoptingTreeScopes) {
+        if (activeSetChanged) {
+            treeScope->adoptedStyleSheetsScope().didChangeActiveStyleSheetCandidates();
+        } else {
+            treeScope->adoptedStyleSheetsScope().didChangeStyleSheetContents();
+        }
+    }
 }
 
 Ref<CSSStyleSheet> CSSStyleSheet::createInline(Ref<StyleSheetContents>&& sheet, Element& owner, const TextPosition& startPosition)
@@ -155,6 +214,12 @@ void CSSStyleSheet::didMutateRules(RuleMutationType mutationType, WhetherContent
     ASSERT(m_contents->isMutable());
     ASSERT(m_contents->hasOneClient());
 
+    if (m_isConstructed) {
+        m_mutatedRules = true;
+        didChangeAdoptedStyleSheet(false);
+        return;
+    }
+
     auto* scope = styleScope();
     if (!scope)
         return;
@@ -176,6 +241,11 @@ void CSSStyleSheet::didMutateRules(RuleMutationType mutationType, WhetherContent
 
 void CSSStyleSheet::didMutate()
 {
+    if (m_isConstructed) {
+        didChangeAdoptedStyleSheet(false);
+        return;
+    }
+
     auto* scope = styleScope();
     if (!scope)
         return;
@@ -201,6 +271,11 @@ void CSSStyleSheet::setDisabled(bool disabled)
     if (disabled == m_isDisabled)
         return;
     m_isDisabled = disabled;
+
+    if (m_isConstructed) {
+        didChangeAdoptedStyleSheet(true);
+        return;
+    }
 
     if (auto* scope = styleScope())
         scope->didChangeActiveStyleSheetCandidates();

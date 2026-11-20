@@ -499,6 +499,15 @@ void Scope::updateActiveStyleSheets(UpdateType updateType)
 
     filterEnabledNonemptyCSSStyleSheets(activeCSSStyleSheets, activeStyleSheets);
 
+    if (!isForUserAgentShadowTree()) {
+        auto& adoptedSheets = m_shadowRoot ? m_shadowRoot->adoptedStyleSheets() : m_document.adoptedStyleSheets();
+        for (auto& sheet : adoptedSheets) {
+            if (sheet && !sheet->disabled() && sheet->length()) {
+                activeCSSStyleSheets.append(sheet);
+            }
+        }
+    }
+
     LOG_WITH_STREAM(StyleSheets, stream << "Scope::updateActiveStyleSheets for document " << m_document << " sheets " << activeCSSStyleSheets);
 
     auto styleSheetChange = StyleSheetChange { ResolverUpdateType::Reconstruct };

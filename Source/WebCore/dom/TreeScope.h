@@ -29,11 +29,13 @@
 #include "TreeScopeOrderedMap.h"
 #include <memory>
 #include <wtf/Forward.h>
+#include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 #include <wtf/text/AtomString.h>
 
 namespace WebCore {
 
+class CSSStyleSheet;
 class ContainerNode;
 class Document;
 class Element;
@@ -46,6 +48,12 @@ class IdTargetObserverRegistry;
 class Node;
 class RadioButtonGroups;
 class ShadowRoot;
+
+template<typename> class ExceptionOr;
+
+namespace Style {
+class Scope;
+}
 
 class TreeScope {
     friend class Document;
@@ -112,6 +120,10 @@ public:
 
     RadioButtonGroups& radioButtonGroups();
 
+    const Vector<RefPtr<CSSStyleSheet>>& adoptedStyleSheets() const { return m_adoptedStyleSheets; }
+    ExceptionOr<void> setAdoptedStyleSheets(Vector<RefPtr<CSSStyleSheet>>&&);
+    Style::Scope& adoptedStyleSheetsScope();
+
 protected:
     TreeScope(ShadowRoot&, Document&);
     explicit TreeScope(Document&);
@@ -138,6 +150,8 @@ private:
     std::unique_ptr<TreeScopeOrderedMap> m_labelsByForAttribute;
 
     std::unique_ptr<IdTargetObserverRegistry> m_idTargetObserverRegistry;
+
+    Vector<RefPtr<CSSStyleSheet>> m_adoptedStyleSheets;
     
     std::unique_ptr<RadioButtonGroups> m_radioButtonGroups;
 };

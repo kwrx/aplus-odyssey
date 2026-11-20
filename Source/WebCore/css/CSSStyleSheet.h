@@ -25,7 +25,9 @@
 #include "StyleSheet.h"
 #include <memory>
 #include <wtf/Noncopyable.h>
+#include <wtf/HashSet.h>
 #include <wtf/TypeCasts.h>
+#include <wtf/WeakPtr.h>
 #include <wtf/text/AtomStringHash.h>
 #include <wtf/text/TextPosition.h>
 
@@ -37,8 +39,10 @@ class CSSRule;
 class CSSStyleSheet;
 class CachedCSSStyleSheet;
 class Document;
+class DeferredPromise;
 class Element;
 class MediaQuerySet;
+class TreeScope;
 class StyleRuleKeyframes;
 class StyleSheetContents;
 
@@ -48,6 +52,13 @@ class Scope;
 
 class CSSStyleSheet final : public StyleSheet {
 public:
+    struct Init {
+        String baseURL;
+        String media;
+        bool disabled { false };
+    };
+
+    static Ref<CSSStyleSheet> create(Document&, const Init&);
     static Ref<CSSStyleSheet> create(Ref<StyleSheetContents>&&, CSSImportRule* ownerRule = 0);
     static Ref<CSSStyleSheet> create(Ref<StyleSheetContents>&&, Node& ownerNode, const std::optional<bool>& isOriginClean = std::nullopt);
     static Ref<CSSStyleSheet> createInline(Ref<StyleSheetContents>&&, Element& owner, const TextPosition& startPosition);
@@ -129,12 +140,22 @@ public:
 
     bool canAccessRules() const;
 
+    ExceptionOr<void> replaceSync(String&&);
+    void replace(String&&, Ref<DeferredPromise>&&);
+
+    bool isConstructed() const { return m_isConstructed; }
+    Document* constructorDocument() const;
+    void addAdoptingTreeScope(TreeScope& treeScope) { m_adoptingTreeScopes.add(&treeScope); }
+    void removeAdoptingTreeScope(TreeScope& treeScope) { m_adoptingTreeScopes.remove(&treeScope); }
+
     String debugDescription() const final;
 
 private:
     CSSStyleSheet(Ref<StyleSheetContents>&&, CSSImportRule* ownerRule);
     CSSStyleSheet(Ref<StyleSheetContents>&&, Node* ownerNode, const TextPosition& startPosition, bool isInlineStylesheet);
     CSSStyleSheet(Ref<StyleSheetContents>&&, Node& ownerNode, const TextPosition& startPosition, bool isInlineStylesheet, const std::optional<bool>&);
+
+    void didChangeAdoptedStyleSheet(bool activeSetChanged);
 
     bool isCSSStyleSheet() const final { return true; }
     String type() const final { return "text/css"_s; }
@@ -151,6 +172,10 @@ private:
     CSSImportRule* m_ownerRule { nullptr };
 
     TextPosition m_startPosition;
+
+    bool m_isConstructed { false };
+    WeakPtr<Document> m_constructorDocument;
+    HashSet<TreeScope*> m_adoptingTreeScopes;
 
     mutable RefPtr<MediaList> m_mediaCSSOMWrapper;
     mutable Vector<RefPtr<CSSRule>> m_childRuleCSSOMWrappers;
