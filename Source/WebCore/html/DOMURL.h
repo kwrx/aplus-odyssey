@@ -52,6 +52,7 @@ public:
 
     const String& toJSON() const { return m_url.string(); }
 
+    static bool canParse(const String& url, const String& base);
     static String createObjectURL(ScriptExecutionContext&, Blob&);
     static void revokeObjectURL(ScriptExecutionContext&, const String&);
 

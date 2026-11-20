@@ -46,6 +46,7 @@ public:
     void remove(const String& name);
     String get(const String& name) const;
     Vector<String> getAll(const String& name) const;
+    unsigned size() const { return m_pairs.size(); }
     bool has(const String& name) const;
     void set(const String& name, const String& value);
     String toString() const;

@@ -27,7 +27,9 @@
 
 #include "ContextDestructionObserver.h"
 #include "EventTarget.h"
+#include "ExceptionOr.h"
 #include "JSDOMPromiseDeferred.h"
+#include "Timer.h"
 #include <wtf/Function.h>
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
@@ -44,6 +46,8 @@ public:
     static Ref<AbortSignal> create(ScriptExecutionContext&);
 
     static Ref<AbortSignal> abort(ScriptExecutionContext&);
+    static Ref<AbortSignal> timeout(ScriptExecutionContext&, uint64_t milliseconds);
+    static Ref<AbortSignal> any(ScriptExecutionContext&, const Vector<RefPtr<AbortSignal>>&);
 
     static bool whenSignalAborted(AbortSignal&, Ref<AbortAlgorithm>&&);
 
@@ -51,6 +55,8 @@ public:
     void signalFollow(AbortSignal&);
 
     bool aborted() const { return m_aborted; }
+    ExceptionOr<void> throwIfAborted() const;
+    bool hasActiveTimeoutTimer() const { return m_timeoutTimer && m_timeoutTimer->isActive(); }
 
     using RefCounted::ref;
     using RefCounted::deref;
@@ -69,10 +75,12 @@ private:
     ScriptExecutionContext* scriptExecutionContext() const final { return ContextDestructionObserver::scriptExecutionContext(); }
     void refEventTarget() final { ref(); }
     void derefEventTarget() final { deref(); }
+    void contextDestroyed() final;
     
     bool m_aborted { false };
     Vector<Algorithm> m_algorithms;
     WeakPtr<AbortSignal> m_followingSignal;
+    std::unique_ptr<Timer> m_timeoutTimer;
 };
 
 }

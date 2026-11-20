@@ -47,6 +47,7 @@ dictionary FetchResponseInit {
 
     [CallWith=ScriptExecutionContext, NewObject] static FetchResponse error();
     [CallWith=ScriptExecutionContext, NewObject] static FetchResponse redirect(USVString url, optional unsigned short status = 302);
+    [CallWith=GlobalObject&ScriptExecutionContext, NewObject, ImplementedAs=jsonForBindings] static FetchResponse json(any data, optional FetchResponseInit init);
 
     readonly attribute FetchResponseType type;
 

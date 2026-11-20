@@ -43,6 +43,9 @@ bool JSAbortSignalOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown> ha
     if (abortSignal.isFollowingSignal())
         return true;
 
+    if (abortSignal.hasActiveTimeoutTimer())
+        return true;
+
     return visitor.containsOpaqueRoot(&abortSignal);
 }
 

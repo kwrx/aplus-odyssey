@@ -47,6 +47,57 @@ Ref<AbortSignal> AbortSignal::abort(ScriptExecutionContext& context)
     return adoptRef(*new AbortSignal(context, Aborted::Yes));
 }
 
+Ref<AbortSignal> AbortSignal::timeout(ScriptExecutionContext& context, uint64_t milliseconds)
+{
+    auto signal = adoptRef(*new AbortSignal(context));
+    signal->m_timeoutTimer = makeUnique<Timer>([weakSignal = makeWeakPtr(signal.get())] {
+        if (weakSignal) {
+            weakSignal->signalAbort();
+        }
+    });
+    signal->m_timeoutTimer->startOneShot(Seconds::fromMilliseconds(milliseconds));
+    return signal;
+}
+
+Ref<AbortSignal> AbortSignal::any(ScriptExecutionContext& context, const Vector<RefPtr<AbortSignal>>& signals)
+{
+    auto result = adoptRef(*new AbortSignal(context));
+    for (auto& signal : signals) {
+        if (signal && signal->aborted()) {
+            result->m_aborted = true;
+            return result;
+        }
+    }
+    for (auto& signal : signals) {
+        if (!signal) {
+            continue;
+        }
+        if (!result->m_followingSignal) {
+            result->m_followingSignal = makeWeakPtr(*signal);
+        }
+        signal->addAlgorithm([weakResult = makeWeakPtr(result.get())] {
+            if (weakResult) {
+                weakResult->signalAbort();
+            }
+        });
+    }
+    return result;
+}
+
+void AbortSignal::contextDestroyed()
+{
+    m_timeoutTimer = nullptr;
+    ContextDestructionObserver::contextDestroyed();
+}
+
+ExceptionOr<void> AbortSignal::throwIfAborted() const
+{
+    if (m_aborted) {
+        return Exception { AbortError, "The operation was aborted."_s };
+    }
+    return { };
+}
+
 AbortSignal::AbortSignal(ScriptExecutionContext& context, Aborted aborted)
     : ContextDestructionObserver(&context)
     , m_aborted(aborted == Aborted::Yes)

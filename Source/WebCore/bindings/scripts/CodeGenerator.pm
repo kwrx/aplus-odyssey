@@ -1037,7 +1037,7 @@ sub LinkOverloadedOperations
 
     my %nameToOperationsMap = ();
     foreach my $operation (@{$interface->operations}) {
-        my $name = $operation->name;
+        my $name = ($operation->isStatic ? "static " : "") . $operation->name;
         $nameToOperationsMap{$name} = [] if !exists $nameToOperationsMap{$name};
         push(@{$nameToOperationsMap{$name}}, $operation);
         $operation->{overloads} = $nameToOperationsMap{$name};

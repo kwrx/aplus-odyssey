@@ -38,6 +38,8 @@
 
     undefined sort();
 
+    readonly attribute unsigned long size;
+
     iterable<USVString, USVString>;
 
     stringifier;

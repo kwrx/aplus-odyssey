@@ -67,6 +67,15 @@ ExceptionOr<Ref<DOMURL>> DOMURL::create(const String& url, const DOMURL& base)
     return create(url, base.href());
 }
 
+bool DOMURL::canParse(const String& url, const String& base)
+{
+    URL baseURL { URL { }, base };
+    if (!base.isNull() && !baseURL.isValid()) {
+        return false;
+    }
+    return URL { baseURL, url }.isValid();
+}
+
 DOMURL::~DOMURL() = default;
 
 ExceptionOr<void> DOMURL::setHref(const String& url)

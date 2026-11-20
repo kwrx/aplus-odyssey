@@ -32,6 +32,9 @@
     [PrivateIdentifier] static boolean whenSignalAborted(AbortSignal object, AbortAlgorithm algorithm);
 
     [NewObject, CallWith=ScriptExecutionContext] static AbortSignal abort();
+    [NewObject, CallWith=ScriptExecutionContext] static AbortSignal timeout([EnforceRange] unsigned long long milliseconds);
+    [NewObject, CallWith=ScriptExecutionContext] static AbortSignal any(sequence<AbortSignal> signals);
+    undefined throwIfAborted();
     readonly attribute boolean aborted;
     attribute EventHandler onabort;
 };

@@ -62,6 +62,7 @@ public:
     static ExceptionOr<Ref<FetchResponse>> create(ScriptExecutionContext&, std::optional<FetchBody::Init>&&, Init&&);
     static Ref<FetchResponse> error(ScriptExecutionContext&);
     static ExceptionOr<Ref<FetchResponse>> redirect(ScriptExecutionContext&, const String& url, int status);
+    static ExceptionOr<Ref<FetchResponse>> jsonForBindings(JSC::JSGlobalObject&, ScriptExecutionContext&, JSC::JSValue data, Init&&);
 
     using NotificationCallback = WTF::Function<void(ExceptionOr<FetchResponse&>&&)>;
     static void fetch(ScriptExecutionContext&, FetchRequest&, NotificationCallback&&);

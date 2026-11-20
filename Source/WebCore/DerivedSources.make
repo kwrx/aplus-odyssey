@@ -625,6 +625,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/dom/BroadcastChannel.idl \
     $(WebCore)/dom/CDATASection.idl \
     $(WebCore)/dom/CharacterData.idl \
+    $(WebCore)/dom/CheckVisibilityOptions.idl \
     $(WebCore)/dom/ChildNode.idl \
     $(WebCore)/dom/ClipboardEvent.idl \
     $(WebCore)/dom/Comment.idl \
@@ -666,6 +667,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/dom/DocumentOrShadowRoot+PointerLock.idl \
     $(WebCore)/dom/DocumentType.idl \
     $(WebCore)/dom/DragEvent.idl \
+    $(WebCore)/dom/Element+CheckVisibility.idl \
     $(WebCore)/dom/Element+CSSOMView.idl \
     $(WebCore)/dom/Element+DOMParsing.idl \
     $(WebCore)/dom/Element+Fullscreen.idl \

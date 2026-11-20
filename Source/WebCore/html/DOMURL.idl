@@ -51,6 +51,7 @@
     USVString toJSON();
 
     // https://w3c.github.io/FileAPI/#creating-revoking.
+    static boolean canParse(USVString url, optional USVString base);
     [CallWith=ScriptExecutionContext] static DOMString createObjectURL(Blob blob);
     [CallWith=ScriptExecutionContext] static undefined revokeObjectURL(DOMString url);
 };

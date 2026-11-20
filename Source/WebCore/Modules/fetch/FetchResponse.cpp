@@ -38,6 +38,7 @@
 #include "ReadableStreamSink.h"
 #include "ResourceError.h"
 #include "ScriptExecutionContext.h"
+#include <JavaScriptCore/JSONObject.h>
 #include <wtf/text/StringConcatenateNumbers.h>
 
 namespace WebCore {
@@ -161,6 +162,40 @@ ExceptionOr<Ref<FetchResponse>> FetchResponse::redirect(ScriptExecutionContext& 
     redirectResponse->m_internalResponse.setHTTPHeaderField(HTTPHeaderName::Location, requestURL.string());
     redirectResponse->m_headers->fastSet(HTTPHeaderName::Location, requestURL.string());
     return redirectResponse;
+}
+
+ExceptionOr<Ref<FetchResponse>> FetchResponse::jsonForBindings(JSC::JSGlobalObject& globalObject, ScriptExecutionContext& context, JSC::JSValue data, Init&& init)
+{
+    auto scope = DECLARE_THROW_SCOPE(globalObject.vm());
+    String json = JSONStringify(&globalObject, data, 0);
+    if (UNLIKELY(scope.exception())) {
+        return Exception { ExistingExceptionError };
+    }
+    if (json.isNull()) {
+        return Exception { TypeError, "Value doesn't have a JSON representation"_s };
+    }
+
+    bool hasContentType = false;
+    if (init.headers) {
+        auto probe = FetchHeaders::create(FetchHeaders::Guard::Response);
+        if (!probe->fill(*init.headers).hasException()) {
+            hasContentType = probe->fastHas(HTTPHeaderName::ContentType);
+        }
+    }
+
+    auto result = create(context, FetchBody::Init { WTFMove(json) }, WTFMove(init));
+    if (result.hasException()) {
+        return result;
+    }
+    auto response = result.releaseReturnValue();
+    if (!hasContentType) {
+        String jsonType = "application/json"_s;
+        response->m_headers->fastSet(HTTPHeaderName::ContentType, jsonType);
+        response->m_contentType = jsonType;
+        response->m_internalResponse.setMimeType(jsonType);
+        response->m_internalResponse.setTextEncodingName(String());
+    }
+    return response;
 }
 
 FetchResponse::FetchResponse(ScriptExecutionContext& context, std::optional<FetchBody>&& body, Ref<FetchHeaders>&& headers, ResourceResponse&& response)
