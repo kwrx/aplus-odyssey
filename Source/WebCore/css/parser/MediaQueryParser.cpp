@@ -170,8 +170,195 @@ void MediaQueryParser::readFeatureStart(CSSParserTokenType type, const CSSParser
         m_state = SkipUntilComma;
 }
 
-void MediaQueryParser::readFeature(CSSParserTokenType type, const CSSParserToken& token, CSSParserTokenRange& /*range*/)
+enum class RangeOperator { Less, LessEqual, Greater, GreaterEqual, Equal };
+
+static bool isRangeDelimiter(const CSSParserToken& token)
 {
+    return token.type() == DelimiterToken && (token.delimiter() == '<' || token.delimiter() == '>' || token.delimiter() == '=');
+}
+
+static RangeOperator flipRangeOperator(RangeOperator op)
+{
+    switch (op) {
+    case RangeOperator::Less:
+        return RangeOperator::Greater;
+    case RangeOperator::LessEqual:
+        return RangeOperator::GreaterEqual;
+    case RangeOperator::Greater:
+        return RangeOperator::Less;
+    case RangeOperator::GreaterEqual:
+        return RangeOperator::LessEqual;
+    case RangeOperator::Equal:
+        return RangeOperator::Equal;
+    }
+    return op;
+}
+
+bool MediaQueryParser::readRangeFeature(const CSSParserToken& first, CSSParserTokenRange& range)
+{
+    if (first.type() == EOFToken || first.getBlockType() == CSSParserToken::BlockEnd) {
+        return false;
+    }
+
+    const CSSParserToken* begin = &first;
+    const CSSParserToken* end = nullptr;
+    bool hasComparison = isRangeDelimiter(first);
+    unsigned depth = first.getBlockType() == CSSParserToken::BlockStart ? 1 : 0;
+
+    CSSParserTokenRange scan = range;
+    while (!scan.atEnd()) {
+        const CSSParserToken& token = scan.peek();
+        if (token.getBlockType() == CSSParserToken::BlockStart) {
+            depth++;
+        } else if (token.getBlockType() == CSSParserToken::BlockEnd) {
+            if (!depth) {
+                end = &token;
+                break;
+            }
+            depth--;
+        } else if (!depth && isRangeDelimiter(token)) {
+            hasComparison = true;
+        }
+        scan.consume();
+    }
+
+    if (!end || !hasComparison) {
+        return false;
+    }
+
+    Vector<std::pair<const CSSParserToken*, const CSSParserToken*>, 3> operands;
+    Vector<RangeOperator, 2> operators;
+    bool malformed = false;
+
+    const CSSParserToken* operandStart = begin;
+    depth = 0;
+    for (const CSSParserToken* token = begin; token < end; ++token) {
+        if (token->getBlockType() == CSSParserToken::BlockStart) {
+            depth++;
+            continue;
+        }
+        if (token->getBlockType() == CSSParserToken::BlockEnd) {
+            depth--;
+            continue;
+        }
+        if (depth || !isRangeDelimiter(*token)) {
+            continue;
+        }
+
+        operands.append({ operandStart, token });
+
+        UChar delimiter = token->delimiter();
+        bool orEqual = false;
+        if (delimiter != '=' && token + 1 < end && token[1].type() == DelimiterToken && token[1].delimiter() == '=') {
+            orEqual = true;
+            ++token;
+        }
+
+        if (delimiter == '<') {
+            operators.append(orEqual ? RangeOperator::LessEqual : RangeOperator::Less);
+        } else if (delimiter == '>') {
+            operators.append(orEqual ? RangeOperator::GreaterEqual : RangeOperator::Greater);
+        } else {
+            operators.append(RangeOperator::Equal);
+        }
+
+        operandStart = token + 1;
+    }
+    operands.append({ operandStart, end });
+
+    auto trimmed = [&](std::pair<const CSSParserToken*, const CSSParserToken*> operand) {
+        while (operand.first < operand.second && operand.first->type() == WhitespaceToken) {
+            ++operand.first;
+        }
+        while (operand.second > operand.first && operand.second[-1].type() == WhitespaceToken) {
+            --operand.second;
+        }
+        return operand;
+    };
+
+    for (auto& operand : operands) {
+        operand = trimmed(operand);
+        if (operand.first == operand.second) {
+            malformed = true;
+        }
+    }
+
+    auto isFeatureName = [](std::pair<const CSSParserToken*, const CSSParserToken*> operand) {
+        return operand.second - operand.first == 1 && operand.first->type() == IdentToken;
+    };
+
+    Vector<MediaQueryExpression, 2> expressions;
+
+    auto build = [&](const String& feature, RangeOperator op, std::pair<const CSSParserToken*, const CSSParserToken*> operand) {
+        String name = feature;
+        if (op == RangeOperator::Greater || op == RangeOperator::GreaterEqual) {
+            name = makeString("min-", feature);
+        } else if (op == RangeOperator::Less || op == RangeOperator::LessEqual) {
+            name = makeString("max-", feature);
+        }
+
+        CSSParserTokenRange valueRange = range.makeSubRange(operand.first, operand.second);
+        MediaQueryExpression expression { name, valueRange, m_mediaQueryData.context() };
+        valueRange.consumeWhitespace();
+        if (!valueRange.atEnd() || !expression.value()) {
+            CSSParserTokenRange empty = range.makeSubRange(operand.first, operand.first);
+            expressions.append(MediaQueryExpression { emptyString(), empty, m_mediaQueryData.context() });
+            return;
+        }
+
+        if (op == RangeOperator::Greater || op == RangeOperator::Less) {
+            expression.makeStrict(op == RangeOperator::Greater);
+        }
+        expressions.append(WTFMove(expression));
+    };
+
+    if (malformed) {
+        operands.clear();
+    }
+
+    if (operands.size() == 2 && isFeatureName(operands[0]) && !isFeatureName(operands[1])) {
+        build(operands[0].first->value().toString(), operators[0], operands[1]);
+    } else if (operands.size() == 2 && isFeatureName(operands[1]) && !isFeatureName(operands[0])) {
+        build(operands[1].first->value().toString(), flipRangeOperator(operators[0]), operands[0]);
+    } else if (operands.size() == 3 && isFeatureName(operands[1]) && !isFeatureName(operands[0]) && !isFeatureName(operands[2])
+        && operators[0] != RangeOperator::Equal && operators[1] != RangeOperator::Equal
+        && ((operators[0] == RangeOperator::Less || operators[0] == RangeOperator::LessEqual) == (operators[1] == RangeOperator::Less || operators[1] == RangeOperator::LessEqual))) {
+        String feature = operands[1].first->value().toString();
+        build(feature, flipRangeOperator(operators[0]), operands[0]);
+        build(feature, operators[1], operands[2]);
+    }
+
+    bool valid = !expressions.isEmpty();
+    for (auto& expression : expressions) {
+        if (!expression.isValid()) {
+            valid = false;
+        }
+    }
+
+    if (valid) {
+        for (auto& expression : expressions) {
+            m_mediaQueryData.appendExpression(WTFMove(expression));
+        }
+    } else {
+        CSSParserTokenRange empty = range.makeSubRange(end, end);
+        m_mediaQueryData.appendExpression(MediaQueryExpression { emptyString(), empty, m_mediaQueryData.context() });
+    }
+
+    while (!range.atEnd() && &range.peek() != end) {
+        m_blockWatcher.handleToken(range.peek());
+        range.consume();
+    }
+
+    m_state = ReadFeatureEnd;
+    return true;
+}
+
+void MediaQueryParser::readFeature(CSSParserTokenType type, const CSSParserToken& token, CSSParserTokenRange& range)
+{
+    if (readRangeFeature(token, range)) {
+        return;
+    }
+
     if (type == IdentToken) {
         m_mediaQueryData.setMediaFeature(token.value().toString());
         m_state = ReadFeatureColon;

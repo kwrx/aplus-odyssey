@@ -271,6 +271,27 @@ MediaQueryExpression::MediaQueryExpression(const String& feature, CSSParserToken
     }
 }
 
+void MediaQueryExpression::makeStrict(bool greater)
+{
+    if (!m_value || !is<CSSPrimitiveValue>(*m_value)) {
+        return;
+    }
+
+    auto& value = downcast<CSSPrimitiveValue>(*m_value);
+    if (!value.isLength() && !value.isNumber() && !value.isResolution()) {
+        return;
+    }
+
+    double delta = featureExpectingPositiveInteger(m_mediaFeature) ? 1 : 0.001;
+    double adjusted = value.doubleValue() + (greater ? delta : -delta);
+    if (adjusted < 0) {
+        adjusted = 0;
+    }
+
+    m_value = CSSPrimitiveValue::create(adjusted, value.primitiveType());
+    m_serializationCache = String();
+}
+
 String MediaQueryExpression::serialize() const
 {
     if (m_serializationCache.isNull())

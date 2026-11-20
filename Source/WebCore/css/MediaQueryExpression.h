@@ -48,6 +48,7 @@ public:
     CSSValue* value() const;
 
     bool isValid() const;
+    void makeStrict(bool greater);
 
     String serialize() const;
 

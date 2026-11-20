@@ -68,6 +68,7 @@ private:
     void readAnd(CSSParserTokenType, const CSSParserToken&, CSSParserTokenRange&);
     void readFeatureStart(CSSParserTokenType, const CSSParserToken&, CSSParserTokenRange&);
     void readFeature(CSSParserTokenType, const CSSParserToken&, CSSParserTokenRange&);
+    bool readRangeFeature(const CSSParserToken&, CSSParserTokenRange&);
     void readFeatureColon(CSSParserTokenType, const CSSParserToken&, CSSParserTokenRange&);
     void readFeatureValue(CSSParserTokenType, const CSSParserToken&, CSSParserTokenRange&);
     void readFeatureEnd(CSSParserTokenType, const CSSParserToken&, CSSParserTokenRange&);
@@ -88,6 +89,8 @@ private:
         explicit MediaQueryData(MediaQueryParserContext);
         void clear();
         void addExpression(CSSParserTokenRange&);
+        void appendExpression(MediaQueryExpression&& expression) { m_expressions.append(WTFMove(expression)); }
+        MediaQueryParserContext& context() { return m_context; }
         bool lastExpressionValid();
         void removeLastExpression();
         void setMediaType(const String& mediaType) { m_mediaType = mediaType; }
