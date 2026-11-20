@@ -38,19 +38,13 @@ DOMHighResTimeStamp IdleDeadline::timeRemaining(Document& document) const
     auto window = makeRefPtr(document.domWindow());
     if (!window)
         return 0;
-    return window->performance().relativeTimeFromTimeOriginInReducedResolution(m_deadline);
+    auto remaining = window->performance().relativeTimeFromTimeOriginInReducedResolution(m_deadline) - window->performance().now();
+    return std::max<DOMHighResTimeStamp>(0, remaining);
 }
 
-bool IdleDeadline::didTimeout(Document& document) const
+bool IdleDeadline::didTimeout(Document&) const
 {
-    auto window = makeRefPtr(document.domWindow());
-    if (!window)
-        return true;
-
-    // Reduce the resolution before the comparision to prevent resolution leakage.
-    auto deadline = window->performance().relativeTimeFromTimeOriginInReducedResolution(m_deadline);
-    auto now = window->performance().now();
-    return deadline >= now;
+    return false;
 }
 
 } // namespace WebCore

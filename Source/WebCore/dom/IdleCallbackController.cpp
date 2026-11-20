@@ -82,17 +82,16 @@ static const auto deadlineCapToEnsureResponsiveness = 50_ms;
 void IdleCallbackController::startIdlePeriod()
 {
     auto now = MonotonicTime::now();
-    if (m_lastDeadline > now)
+    if (m_idleRequestCallbacks.isEmpty() && m_runnableIdleCallbacks.isEmpty())
         return;
 
     // FIXME: Take other tasks in the WindowEventLoop into account.
-    auto deadline = now + deadlineCapToEnsureResponsiveness;
+    auto deadline = m_lastDeadline > now ? m_lastDeadline : now + deadlineCapToEnsureResponsiveness;
 
     for (auto& request : m_idleRequestCallbacks)
         m_runnableIdleCallbacks.append({ request.identifier, WTFMove(request.callback) });
     m_idleRequestCallbacks.clear();
 
-    ASSERT(!m_runnableIdleCallbacks.isEmpty());
     queueTaskToInvokeIdleCallbacks(deadline);
 
     m_lastDeadline = deadline;
@@ -124,6 +123,8 @@ void IdleCallbackController::invokeIdleCallbacks(MonotonicTime deadline)
         request.callback->handleEvent(idleDeadline.get());
         if (!m_runnableIdleCallbacks.isEmpty())
             queueTaskToInvokeIdleCallbacks(deadline);
+        else if (!m_idleRequestCallbacks.isEmpty())
+            queueTaskToStartIdlePeriod();
         return;
     }
 
