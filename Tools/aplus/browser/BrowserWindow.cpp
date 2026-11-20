@@ -214,7 +214,7 @@ bool BrowserWindow::init()
         return false;
     }
 
-    ui_window_set_icon(m_window, "web-browser");
+    ui_window_set_icon(m_window, "odyssey");
 
     m_width = ui_window_width(m_window);
     m_height = ui_window_height(m_window);
