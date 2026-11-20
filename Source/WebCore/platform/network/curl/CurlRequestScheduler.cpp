@@ -32,7 +32,12 @@
 
 #include "CurlRequestSchedulerClient.h"
 
-#if PLATFORM(MUI)
+#if OS(APLUS)
+#include <sys/select.h>
+#include <unistd.h>
+#endif
+
+#if OS(AROS)
 #include <proto/exec.h>
 #include <proto/bsdsocket.h>
 #include <unistd.h>
@@ -123,7 +128,7 @@ void CurlRequestScheduler::startOrWakeUpThread()
     }
 
     m_thread = Thread::create("curlThread", [this] {
-#if PLATFORM(MUI)
+#if OS(AROS)
         init_SocketBase();
         /* Increase priority so that network data is transported immediatelly */
         SetTaskPri(FindTask(NULL), 1);
@@ -132,7 +137,7 @@ void CurlRequestScheduler::startOrWakeUpThread()
 
         Locker locker { m_mutex };
         m_runThread = false;
-#if PLATFORM(MUI)
+#if OS(AROS)
         close_SocketBase();
 #endif
     }, ThreadType::Network);
@@ -312,7 +317,11 @@ void CurlRequestScheduler::workerThread()
 
             struct timeval timeout;
             timeout.tv_sec = 0;
+#if OS(APLUS)
+            timeout.tv_usec = 10000;
+#else
             timeout.tv_usec = 500; // shorter timeouts give better outgoing performance
+#endif
 
             m_curlMultiHandle->getFdSet(fdread, fdwrite, fdexcep, maxfd);
 
@@ -323,7 +332,11 @@ void CurlRequestScheduler::workerThread()
             // and bail out, stopping the file download. So make sure we
             // have valid file descriptors before calling select.
             if (maxfd >= 0)
+#if OS(APLUS)
+                rc = select(maxfd + 1, &fdread, &fdwrite, &fdexcep, &timeout);
+#else
                 rc = WaitSelect(maxfd + 1, &fdread, &fdwrite, &fdexcep, &timeout, nullptr);
+#endif
             else {
                 usleep(100 * 1000);
             }

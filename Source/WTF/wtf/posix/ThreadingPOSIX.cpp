@@ -443,7 +443,7 @@ auto Thread::suspend() -> Expected<void, PlatformSuspendError>
     if (result != KERN_SUCCESS)
         return makeUnexpected(result);
     return { };
-#elif PLATFORM(MUI)
+#elif OS(AROS)
     // no way to suspend thread, report that it is not suspended
     return makeUnexpected(EINVAL);
 #elif !OS(MORPHOS)
@@ -474,7 +474,7 @@ void Thread::resume()
     Locker locker { globalSuspendLock };
 #if OS(DARWIN)
     thread_resume(m_platformThread);
-#elif !PLATFORM(MUI)
+#elif !OS(AROS)
     if (m_suspendCount == 1) {
         // When allowing sigThreadSuspendResume interrupt in the signal handler by sigsuspend and SigThreadSuspendResume is actually issued,
         // the signal handler itself will be called once again.
@@ -581,7 +581,9 @@ Thread& Thread::initializeTLS(Ref<Thread>&& thread)
 #if !HAVE(FAST_TLS)
     ASSERT(s_key != InvalidThreadSpecificKey);
     threadSpecificSet(s_key, &threadInTLS);
+#if OS(AROS) || OS(MORPHOS)
     FindTask(NULL)->tc_UserData = &threadInTLS;
+#endif
 #else
     _pthread_setspecific_direct(WTF_THREAD_DATA_KEY, &threadInTLS);
     pthread_key_init_np(WTF_THREAD_DATA_KEY, &destructTLS);

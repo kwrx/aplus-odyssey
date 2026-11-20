@@ -14,8 +14,14 @@
 #include "Frame.h"
 #include "Page.h"
 #include "CommonVM.h"
+#if !OS(APLUS)
 #include <proto/exec.h>
 #include <exec/exec.h>
+#endif
+#if OS(APLUS)
+#include <stdio.h>
+#define dprintf(...) fprintf(stderr, __VA_ARGS__)
+#endif
 
 #if OS(AROS)
 #include <aros/debug.h>
@@ -45,6 +51,10 @@ public:
     {
         static bool checkDone = false;
         static bool valid;
+#if OS(APLUS)
+        checkDone = true;
+        valid = true;
+#else
         if (!checkDone)
         {
             struct Library *cgx = OpenLibrary("cgxvideo.library", 43);
@@ -61,6 +71,7 @@ public:
             if (!valid)
                 dprintf("Wayfarer: please make sure cgxvideo.library 43.18 is installed in MOSSYS:Libs!\n");
         }
+#endif
         return valid;
     }
 
@@ -101,6 +112,13 @@ public:
 		types.add(String("video/ogg"));
 		types.add(String("video/x-theora+ogg"));
 		types.add(String("video/webm"));
+#if OS(APLUS)
+		types.add(String("video/x-matroska"));
+		types.add(String("video/quicktime"));
+		types.add(String("video/x-m4v"));
+		types.add(String("audio/x-matroska"));
+		types.add(String("audio/opus"));
+#endif
 
 		// HLS
 		if (withHLS)

@@ -48,7 +48,7 @@
 
 namespace WebCore {
 
-#if PLATFORM(MUI)
+#if PLATFORM(MUI) && !USE(HARFBUZZ)
 
 bool FontCascade::canReturnFallbackFontsForComplexText()
 {

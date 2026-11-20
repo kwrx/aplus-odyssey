@@ -14,8 +14,14 @@
 #include "VideoTrackPrivateMorphOS.h"
 #include "MediaSampleMorphOS.h"
 
+#if !OS(APLUS)
 #include <proto/dos.h>
 #include <proto/exec.h>
+#endif
+#if OS(APLUS)
+#include <stdio.h>
+#define dprintf(...) fprintf(stderr, __VA_ARGS__)
+#endif
 
 #if OS(AROS)
 #include <aros/debug.h>

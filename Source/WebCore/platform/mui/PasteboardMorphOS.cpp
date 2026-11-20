@@ -52,6 +52,9 @@
 
 #include <cstdio>
 
+#if OS(APLUS)
+#include "AplusBrowserHost.h"
+#else
 #include <devices/clipboard.h>
 #include <libraries/locale.h>
 #include <proto/exec.h>    
@@ -63,6 +66,7 @@
 #include <datatypes/pictureclass.h>
 #include "utils.h"
 #include "clipboard.h"
+#endif
 
 #undef String
 
@@ -70,6 +74,16 @@
 
 namespace WebCore {
 
+#if OS(APLUS)
+static void writeUTF8(const char* data, size_t len)
+{
+    if (data && len) {
+        if (auto* clipboard = aplusClipboard()) {
+            clipboard->writeText(data, len);
+        }
+    }
+}
+#else
 static void writeUTF8(const char* data, size_t len)
 {
     IFFHandle *ih;
@@ -120,6 +134,8 @@ static void writeUTF8(const char* data, size_t len)
         DisplayBeep(NULL);
     }
 }
+
+#endif
 
 enum ClipboardDataType {
     ClipboardDataTypeText,
@@ -347,6 +363,7 @@ void Pasteboard::writeImage(Element& element, const URL&, const String& title)
     Image* image = cachedImage->imageForRenderer(renderer);
     ASSERT(image);
 
+#if !OS(APLUS)
     if(m_morphosClipboard == 0)
     {
         /* Copy to system clipboard */
@@ -371,6 +388,7 @@ void Pasteboard::writeImage(Element& element, const URL&, const String& title)
         if (!copied)
             DisplayBeep(NULL);
     }
+#endif
 
     /* Copy to internal clipboard */
 
@@ -502,6 +520,21 @@ RefPtr<DocumentFragment> Pasteboard::documentFragment(Frame& frame, const Simple
     return 0;
 }
 
+#if OS(APLUS)
+static String getPlainText(Frame*)
+{
+    String result;
+
+    if (auto* clipboard = aplusClipboard()) {
+        if (char* text = clipboard->readText()) {
+            result = String::fromUTF8(text);
+            free(text);
+        }
+    }
+
+    return result;
+}
+#else
 static void copycollection(String &str, CollectionItem* ci, uint32 codeSet)
 {
     if (ci->ci_Next)
@@ -585,6 +618,8 @@ static String getPlainText(Frame* )
     return m_dataObject->text();
 */
 }
+
+#endif
 
 void Pasteboard::read(PasteboardPlainText& text, PlainTextURLReadingPolicy, std::optional<size_t>)
 {

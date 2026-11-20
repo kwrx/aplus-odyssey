@@ -43,6 +43,7 @@ if (NOT HAS_RUN_WEBKIT_COMMON)
         WinCairo
         MorphOS
         MUI
+        APLUS
     )
     set(PORT "NOPORT" CACHE STRING "choose which WebKit port to build (one of ${ALL_PORTS})")
 
@@ -156,7 +157,7 @@ if (NOT HAS_RUN_WEBKIT_COMMON)
     set(WebKit_LIBRARY_TYPE SHARED)
     set(WebCoreTestSupport_LIBRARY_TYPE STATIC)
 
-    if (${PORT} STREQUAL "MUI")
+    if ("${PORT}" MATCHES "^(MUI|APLUS)$")
     set(CMAKE_POSITION_INDEPENDENT_CODE False)
     else ()
     set(CMAKE_POSITION_INDEPENDENT_CODE True)

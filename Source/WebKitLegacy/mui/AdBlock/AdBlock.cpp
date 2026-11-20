@@ -37,7 +37,12 @@
 
 #include <stdio.h>
 #include <clib/debug_protos.h>
+#if OS(APLUS)
+#include "AplusBrowserHost.h"
+#include <wtf/text/StringConcatenateNumbers.h>
+#else
 #include "gui.h"
+#endif
 
 
 #include <type_traits>
@@ -53,7 +58,11 @@ namespace AdBlock {
 #define DOCUMENT_TYPE 9
 #define CACHE_SIZE 1009
 #define SHORTCUT_SIZE 8
+#if OS(APLUS)
+#define FILTER_PATH makeString(aplusConfigDir(), "/blocked.prefs").utf8().data()
+#else
 #define FILTER_PATH "PROGDIR:conf/blocked.prefs"
+#endif
 
 class AdPattern {
 public:
@@ -300,12 +309,16 @@ static CacheEntry* initialize()
 			if (line.startsWith("@@"))
 			{
 				AdPattern *pattern = ab_whiteList.addPattern(line.substring(2));
+#if !OS(APLUS)
 				DoMethod(app, MM_BlockManagerGroup_DidInsert, line.substring(2).utf8().data(), 1, (void *) pattern);
+#endif
 			}
 			else if (!line.startsWith("!") && !line.startsWith("#") && !line.isEmpty())
 			{
 				AdPattern *pattern = ab_blackList.addPattern(line);
+#if !OS(APLUS)
 				DoMethod(app, MM_BlockManagerGroup_DidInsert, line.utf8().data(), 0, (void *) pattern);
+#endif
             }
         }
         fclose(file);
@@ -511,7 +524,9 @@ void blockResource(const URL& url, int type, int mode)
 	}
 
 	AdPattern *pattern = ab_blackList.addPattern(pat);
+#if !OS(APLUS)
 	DoMethod(app, MM_BlockManagerGroup_DidInsert, pat.utf8().data(), 0, (void *) pattern);
+#endif
 	writeCache();
     flushCache();
 }

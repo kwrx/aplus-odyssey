@@ -600,8 +600,13 @@ void CALL_CONVT ac_get_stream_info(lp_ac_instance pacInstance, int nb,
 			// Store more information about the video stream
 			info->additional_info.audio_info.samples_per_second =
 			    self->pFormatCtx->streams[nb]->codecpar->sample_rate;
+#if LIBAVCODEC_VERSION_MAJOR >= 60
+			info->additional_info.audio_info.channel_count =
+			    self->pFormatCtx->streams[nb]->codecpar->ch_layout.nb_channels;
+#else
 			info->additional_info.audio_info.channel_count =
 			    self->pFormatCtx->streams[nb]->codecpar->channels;
+#endif
 
 			// Set bit depth
 			switch (self->pFormatCtx->streams[nb]->codecpar->format) {
@@ -652,8 +657,10 @@ void CALL_CONVT ac_get_stream_info(lp_ac_instance pacInstance, int nb,
 lp_ac_package CALL_CONVT ac_read_package(lp_ac_instance pacInstance) {
 	if (NULL == pacInstance)
 		return NULL;
+#if LIBAVCODEC_VERSION_MAJOR < 60
 	if (NULL == ((lp_ac_data)(pacInstance))->pFormatCtx->internal)
 		return NULL; // why?
+#endif
 
 	// Allocate the result packet
 	lp_ac_package_data pkt;
@@ -680,7 +687,7 @@ void CALL_CONVT ac_free_package(lp_ac_package pPackage) {
 	if (pPackage && pPackage != ac_flush_packet()) {
 		lp_ac_package_data self = (lp_ac_package_data)pPackage;
 		av_packet_unref(self->pPack);
-		av_packet_free(self->pPack);
+		av_packet_free(&self->pPack);
 		av_free(self);
 	}
 }
@@ -847,18 +854,29 @@ static void *ac_create_audio_decoder(lp_ac_instance pacInstance,
 	// from the channel count.
 	const enum AVSampleFormat fmt = pCodecCtx->sample_fmt;
 	const int rate = pCodecCtx->sample_rate;
+#if LIBAVCODEC_VERSION_MAJOR >= 60
+	AVChannelLayout layout;
+	if (pCodecCtx->ch_layout.order == AV_CHANNEL_ORDER_UNSPEC || av_channel_layout_copy(&layout, &pCodecCtx->ch_layout) < 0)
+		av_channel_layout_default(&layout, pCodecCtx->ch_layout.nb_channels);
+	AVChannelLayout stereo = AV_CHANNEL_LAYOUT_STEREO;
+	const int isStereo = 0 == av_channel_layout_compare(&layout, &stereo);
+
+	pDecoder->channels_at_create = pCodecCtx->ch_layout.nb_channels;
+#else
 	const int64_t layout =
 	    pCodecCtx->channel_layout
 	        ? pCodecCtx->channel_layout
 	        : av_get_default_channel_layout(pCodecCtx->channels);
+	const int isStereo = layout == AV_CH_LAYOUT_STEREO;
 
 	pDecoder->channels_at_create = pCodecCtx->channels;
+#endif
 
 	// Always output AV_CH_LAYOUT_STEREO, AV_SAMPLE_FMT_S16, maximum 48kHz
 	bool needSWR = false;
 	if (pacInstance->audio_rate != rate)
 		needSWR = true;
-	if (pacInstance->audio_output_format == AC_AUDIO_OUTPUT_16_2 && (layout != AV_CH_LAYOUT_STEREO || fmt != AV_SAMPLE_FMT_S16))
+	if (pacInstance->audio_output_format == AC_AUDIO_OUTPUT_16_2 && (!isStereo || fmt != AV_SAMPLE_FMT_S16))
 		needSWR = true;
 	if (pacInstance->audio_output_format != AC_AUDIO_OUTPUT_16_2)
 		needSWR = true;
@@ -877,11 +895,27 @@ static void *ac_create_audio_decoder(lp_ac_instance pacInstance,
 			desiredFmt = AV_SAMPLE_FMT_FLT;
 		}
 	
+#if LIBAVCODEC_VERSION_MAJOR >= 60
+		AVChannelLayout desired;
+		av_channel_layout_from_mask(&desired, desiredLayout);
+		int swrError = swr_alloc_set_opts2(&pDecoder->pSwrCtx, &desired, desiredFmt, pacInstance->audio_rate,
+			&layout, fmt, rate, 0, NULL);
+		av_channel_layout_uninit(&desired);
+		if (swrError < 0 || !pDecoder->pSwrCtx) {
+			av_channel_layout_uninit(&layout);
+			goto error;
+		}
+#else
 		ERR(pDecoder->pSwrCtx = swr_alloc_set_opts(NULL, desiredLayout, desiredFmt, pacInstance->audio_rate,
 			layout, fmt, rate, 0, NULL));
+#endif
 
 		AV_ERR(swr_init(pDecoder->pSwrCtx));
 	}
+
+#if LIBAVCODEC_VERSION_MAJOR >= 60
+	av_channel_layout_uninit(&layout);
+#endif
 
 	return (void *)pDecoder;
 
@@ -925,8 +959,7 @@ lp_ac_decoder CALL_CONVT ac_create_decoder_ex(lp_ac_instance pacInstance, int nb
 
 const char *ac_codec_name(lp_ac_instance pacInstance, int nb) {
 	lp_ac_data self = ((lp_ac_data)(pacInstance));
-	AVCodecContext *pCodecCtx = self->pFormatCtx->streams[nb]->codec;
-	return avcodec_get_name(pCodecCtx->codec_id);
+	return avcodec_get_name(self->pFormatCtx->streams[nb]->codecpar->codec_id);
 }
 
 lp_ac_decoder_frame ac_alloc_decoder_frame(lp_ac_decoder decoder)
@@ -1061,7 +1094,11 @@ ac_receive_frame_rc ac_receive_frame(lp_ac_decoder pDecoder, lp_ac_decoder_frame
 // Trigger: https://www.youtube.com/watch?v=u3xHPIuX3s4&list=PLuprJ3W2ahOXgaIkH_Pf4De4JSFz6wo9l&index=2
 // Let it play to after 2:30, there will be a lag and then stereo changes to mono
 if (
+#if LIBAVCODEC_VERSION_MAJOR >= 60
+	aDecoder->channels_at_create != pCodecCtx->ch_layout.nb_channels &&
+#else
 	aDecoder->channels_at_create != pCodecCtx->channels &&
+#endif
 	(((const uint8_t **)frame->pFrame->data)[1] == NULL))
 {
 	return RECEIVE_FRAME_ERROR;
@@ -1075,7 +1112,7 @@ if (
 				int fmt = AV_SAMPLE_FMT_S16;
 				if (aDecoder->decoder.pacInstance->audio_output_format != AC_AUDIO_OUTPUT_16_2)
 					fmt = AV_SAMPLE_FMT_FLT;
-				frame->frame.buffer_size = av_samples_get_buffer_size(&buffer_size, channel_count, rc, fmt, 1);
+				frame->frame.buffer_size = av_samples_get_buffer_size(NULL, channel_count, rc, fmt, 1);
 			} else {
 				// No conversion needs to be done, simply set the buffer pointer
 				frame->frame.pBuffer = frame->pFrame->data[0];
@@ -1193,8 +1230,12 @@ static void ac_free_video_decoder(lp_ac_video_decoder pDecoder) {
 		sws_freeContext(pDecoder->pSwsCtx);
 		if (pDecoder->pScaledFrameRGB) av_frame_free(&(pDecoder->pScaledFrameRGB));
 		if (pDecoder->pScaledSwsCtx) sws_freeContext(pDecoder->pScaledSwsCtx);
+#if LIBAVCODEC_VERSION_MAJOR >= 60
+		avcodec_free_context(&pDecoder->pCodecCtx);
+#else
 		avcodec_close(pDecoder->pCodecCtx);
 		av_free(pDecoder->pCodecCtx);
+#endif
 		av_free(pDecoder->decoder.pBuffer);
 		av_free(pDecoder);
 	}
@@ -1203,8 +1244,12 @@ static void ac_free_video_decoder(lp_ac_video_decoder pDecoder) {
 // Free video decoder
 static void ac_free_audio_decoder(lp_ac_audio_decoder pDecoder) {
 	if (pDecoder) {
+#if LIBAVCODEC_VERSION_MAJOR >= 60
+		avcodec_free_context(&pDecoder->pCodecCtx);
+#else
 		avcodec_close(pDecoder->pCodecCtx);
 		av_free(pDecoder->pCodecCtx);
+#endif
 		av_frame_free(&(pDecoder->pFrame));
 		if (pDecoder->pSwrCtx) {
 			swr_free(&(pDecoder->pSwrCtx));

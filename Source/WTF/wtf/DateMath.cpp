@@ -84,7 +84,7 @@
 #include <windows.h>
 #endif
 
-#if PLATFORM(MUI)
+#if OS(AROS)
 extern long get_DST_offset(void);
 extern long get_GMT_offset(void);
 #endif
@@ -258,7 +258,7 @@ static int32_t calculateUTCOffset()
 
 #if HAVE(TIMEGM)
     time_t utcOffset = timegm(&localt) - mktime(&localt);
-#elif PLATFORM(MUI)
+#elif OS(AROS)
     time_t utcOffset = - get_GMT_offset();
 #else
     // Using a canned date of 01/01/2019 on platforms with weaker date-handling foo.

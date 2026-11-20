@@ -57,6 +57,8 @@ public:
     int itemHeight() const { return m_itemHeight; }
     IntRect clientRect() const;
     const IntRect& windowRect() const { return m_windowRect; }
+    const IntRect& anchorRect() const { return m_anchorRect; }
+    FrameView* frameView() const { return m_frameView; }
 
 private:
     PopupMenuClient* m_popupClient;
@@ -65,8 +67,9 @@ private:
     void calculatePositionAndSize(const IntRect&, FrameView*);
 
     IntRect m_windowRect;
+    IntRect m_anchorRect;
     int m_itemHeight;
-    FrameView * m_frameView;
+    FrameView * m_frameView { nullptr };
 };
 
 }

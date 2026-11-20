@@ -4,7 +4,13 @@
 #include "acinerella.h"
 #include "AcinerellaContainer.h"
 #include "MediaPlayerMorphOS.h"
+#if !OS(APLUS)
 #include <proto/exec.h>
+#endif
+#if OS(APLUS)
+#include <stdio.h>
+#define dprintf(...) fprintf(stderr, __VA_ARGS__)
+#endif
 
 #define D(x)
 #define DNF(x)  //if (!isAudio()) {x;}
@@ -376,7 +382,9 @@ void AcinerellaDecoder::terminate()
 
 void AcinerellaDecoder::threadEntryPoint()
 {
+#if !OS(APLUS)
 	SetTaskPri(FindTask(0), isAudio() ? 3 : 2);
+#endif
 
 	RefPtr<AcinerellaDecoder> refSelf = WTF::makeRef(*this);
 

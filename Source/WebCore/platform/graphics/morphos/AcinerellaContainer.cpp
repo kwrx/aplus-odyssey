@@ -9,9 +9,17 @@
 #include "AcinerellaMuxer.h"
 #include "AcinerellaHLS.h"
 #include "PlatformMediaResourceLoader.h"
+#if !OS(APLUS)
 #include <proto/exec.h>
+#endif
+#if OS(APLUS)
+#include <stdio.h>
+#define dprintf(...) fprintf(stderr, __VA_ARGS__)
+#endif
 #if OS(MORPHOS)
+#if !OS(APLUS)
 #include <exec/system.h>
+#endif
 #endif
 #if OS(AROS)
 #include <aros/debug.h>
@@ -221,6 +229,9 @@ void Acinerella::selectStream()
 #endif
 #if OS(AROS)
 	UQUAD clock = 2000000000;
+#endif
+#if OS(APLUS)
+	uint64_t clock = 2000000000;
 #endif
 
 	for (auto info : hls->streams())
@@ -475,7 +486,9 @@ void Acinerella::coolDown()
 
 void Acinerella::threadEntryPoint()
 {
+#if !OS(APLUS)
 	SetTaskPri(FindTask(0), 1);
+#endif
 
 	D(dprintf("%s: %p\n", __func__, this));
 	if (initialize())

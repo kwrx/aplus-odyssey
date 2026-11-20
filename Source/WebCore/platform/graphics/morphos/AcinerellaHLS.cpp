@@ -4,7 +4,13 @@
 
 #if ENABLE(VIDEO)
 
+#if !OS(APLUS)
 #include <proto/exec.h>
+#endif
+#if OS(APLUS)
+#include <stdio.h>
+#define dprintf(...) fprintf(stderr, __VA_ARGS__)
+#endif
 
 namespace WebCore {
 namespace Acinerella {

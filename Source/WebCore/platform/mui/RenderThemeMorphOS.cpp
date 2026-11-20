@@ -40,7 +40,9 @@
 #include "StringTruncator.h"
 #include "wtf/text/CString.h"
 
+#if !OS(APLUS)
 #include <proto/dos.h>
+#endif
 
 #include <clib/debug_protos.h>
 #define D(x)

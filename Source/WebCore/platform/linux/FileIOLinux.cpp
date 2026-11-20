@@ -35,7 +35,10 @@
 #include <unistd.h>
 #include <stdio.h>
 
-#if PLATFORM(MUI)
+#if OS(APLUS)
+#include <limits.h>
+#define D(x)
+#elif PLATFORM(MUI)
 #include <dos/dos.h>
 #include <proto/dos.h>
 #if !OS(AROS)
@@ -61,7 +64,7 @@ OWBFile::~OWBFile()
 	D(kprintf("[File] ~File() OK\n"));
 }
 
-#if !OS(AROS)
+#if !OS(AROS) && !OS(APLUS)
 int OWBFile::open(char openType)
 {
 	struct AsyncFile *fd = 0;
@@ -200,7 +203,11 @@ int OWBFile::open(char openType)
 {
     char name[PATH_MAX];
 
+#if OS(APLUS)
+    snprintf(name, sizeof(name), "%s", m_filePath.utf8().data());
+#else
     stccpy(name, m_filePath.latin1().data(), sizeof(name));
+#endif
 
     if (openType == 'w')
         m_fd = ::fopen(name, "w");

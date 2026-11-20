@@ -63,7 +63,7 @@ class CurlGlobal {
 protected:
     CurlGlobal()
     {
-#if OS(AROS)
+#if OS(AROS) || OS(APLUS)
         // 7.76.0 does not have CURL_GLOBAL_NO_GETENV
         curl_global_init(CURL_GLOBAL_ALL );
 #else

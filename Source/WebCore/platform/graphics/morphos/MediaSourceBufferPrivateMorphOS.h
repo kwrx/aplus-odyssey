@@ -21,7 +21,9 @@
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/RunLoop.h>
 
+#if !OS(APLUS)
 #include <dos/dos.h>
+#endif
 
 struct Window;
 
@@ -98,7 +100,9 @@ protected:
 	int                                   m_numDecoders = 0;
 	bool                                  m_signalComplete = true;
 	
+#if !OS(APLUS)
 	BPTR                                  m_debugFile = 0;
+#endif
 };
 
 class MediaSourceBufferPrivateMorphOS final : public SourceBufferPrivate, public Acinerella::AcinerellaDecoderClient {

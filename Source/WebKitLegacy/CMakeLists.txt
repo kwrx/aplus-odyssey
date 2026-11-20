@@ -24,7 +24,7 @@ set(WebKitLegacy_SOURCES
     WebCoreSupport/WebResourceLoadScheduler.cpp
 )
 
-if (NOT "${PORT}" STREQUAL "MorphOS" AND NOT "${PORT}" STREQUAL "MUI")
+if (NOT "${PORT}" MATCHES "^(MorphOS|MUI|APLUS)$")
     set(WebKitLegacy_SOURCES $(WebKitLegacy_SOURCES)
         WebCoreSupport/WebViewGroup.cpp
         )
@@ -74,7 +74,7 @@ if (MSVC)
     endif ()
 endif ()
 
-if (${PORT} STREQUAL "MUI")
+if ("${PORT}" MATCHES "^(MUI|APLUS)$")
     string(TIMESTAMP BUILD_DATE "%d.%m.%Y")
     add_definitions(-DOWB_BUILD_DATE="${BUILD_DATE}")
 endif ()

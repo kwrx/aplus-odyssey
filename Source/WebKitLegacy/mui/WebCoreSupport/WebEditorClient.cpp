@@ -49,9 +49,11 @@
 #include <WebCore/VisibleSelection.h> 
 
 #include <WebCore/TextBoundaries.h>
+#if !OS(APLUS)
 #include "gui.h"
 #include "utils.h"
-#if !OS(AROS)
+#endif
+#if !OS(AROS) && !OS(APLUS)
 #include <proto/spellchecker.h>
 #endif
 #include <clib/debug_protos.h>
@@ -424,21 +426,29 @@ void WebEditorClient::textFieldDidBeginEditing(Element* e)
 
 void WebEditorClient::textFieldDidEndEditing(Element* element)
 {
+#if !OS(APLUS)
     DoMethod(m_webView->viewWindow()->browser, MM_OWBBrowser_Autofill_HidePopup);
+#endif
 }
 
 void WebEditorClient::textDidChangeInTextField(Element* element)
 {
+#if !OS(APLUS)
     if (HTMLInputElement* inputElement = downcast<HTMLInputElement>(element))
     {
         DoMethod(m_webView->viewWindow()->browser, MM_OWBBrowser_Autofill_DidChangeInTextField, inputElement);
     }
+#endif
 }
 
 bool WebEditorClient::doTextFieldCommandFromEvent(Element* e, KeyboardEvent* ke)
 {
     // XXX: any better place to catch the event?
+#if OS(APLUS)
+    return false;
+#else
     return DoMethod(m_webView->viewWindow()->browser, MM_OWBBrowser_Autofill_HandleNavigationEvent, ke);
+#endif
 }
 
 void WebEditorClient::textWillBeDeletedInTextField(Element* e)
@@ -843,6 +853,12 @@ bool WebEditorClient::spellingUIIsShowing()
 
 void WebEditorClient::getGuessesForWord(const String& word, const String& context, const VisibleSelection& currentSelection, Vector<String>& guesses)
 {
+#if OS(APLUS)
+    UNUSED_PARAM(word);
+    UNUSED_PARAM(context);
+    UNUSED_PARAM(currentSelection);
+    guesses.clear();
+#else
     D(kprintf("getGuessesForWord(%s)\n", word.utf8().data()));
 
     String isolatedWord;
@@ -887,6 +903,7 @@ void WebEditorClient::getGuessesForWord(const String& word, const String& contex
 
     isolatedWord = isolatedWord.convertToLowercaseWithoutLocale();
 
+#if !OS(APLUS)
     cword = utf8_to_local(isolatedWord.utf8().data());
 
     if(cword)
@@ -924,6 +941,7 @@ void WebEditorClient::getGuessesForWord(const String& word, const String& contex
 
         free(cword);
     }
+#endif
 
     /*guesses.clear();
 
@@ -943,6 +961,7 @@ void WebEditorClient::getGuessesForWord(const String& word, const String& contex
         guesses.append(String(guess, SysStringLen(guess)));
         SysFreeString(guess);
     }*/
+#endif
 }
 
 void WebEditorClient::willSetInputMethodState()

@@ -7,16 +7,23 @@
 #include "GraphicsContext.h"
 #include "GraphicsContextCairo.h"
 
+#if !OS(APLUS)
 #include <proto/exec.h>
 #include <proto/dos.h>
 #include <dos/dos.h>
 #include <proto/muimaster.h>
+#endif
+#if OS(APLUS)
+#include <stdio.h>
+#define dprintf(...) fprintf(stderr, __VA_ARGS__)
+#endif
 
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 
 #include <cairo.h>
 
+#if !OS(APLUS)
 #include <proto/intuition.h>
 #include <intuition/intuition.h>
 #include <proto/cybergraphics.h>
@@ -29,6 +36,7 @@
 #include <cybergraphx/cgxvideo.h>
 #include <graphics/rpattr.h>
 #include <proto/graphics.h>
+#endif
 #if OS(AROS)
 #include <aros/debug.h>
 #undef D
@@ -773,7 +781,9 @@ void AcinerellaVideoDecoder::blitFrameLocked()
 void AcinerellaVideoDecoder::pullThreadEntryPoint()
 {
 	D(dprintf("\033[36m[VD]%s: %p\033[0m\n", __func__, this));
+#if !OS(APLUS)
 	SetTaskPri(FindTask(0), 3);
+#endif
 
 	while (!m_terminating)
 	{

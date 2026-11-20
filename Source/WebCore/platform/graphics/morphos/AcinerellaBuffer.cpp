@@ -15,6 +15,12 @@
 #include <queue>
 #include "AcinerellaDecoder.h"
 #include "AcinerellaHLS.h"
+#if OS(APLUS)
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <wtf/URL.h>
+#endif
 
 #if ENABLE(WEB_CRYPTO)
 
@@ -22,6 +28,10 @@
 #include "CryptoAlgorithmAesKeyParams.h"
 #include "CryptoKeyAES.h"
 #include "CryptoAlgorithmAES_CBC.h"
+#if OS(APLUS)
+#include <stdio.h>
+#define dprintf(...) fprintf(stderr, __VA_ARGS__)
+#endif
 
 #endif
 
@@ -568,6 +578,7 @@ protected:
 AcinerellaNetworkBuffer::AcinerellaNetworkBuffer(AcinerellaNetworkBufferResourceLoaderProvider *resourceProvider, const String &url, size_t readAhead)
 	: m_provider(resourceProvider)
 	, m_url(url)
+	, m_length(0)
 	, m_readAhead(readAhead)
 {
 	D(dprintf("%s(%p) - %s\n", __PRETTY_FUNCTION__, this, url.utf8().data()));
@@ -590,8 +601,79 @@ void AcinerellaNetworkBuffer::die()
 	stop();
 }
 
+#if OS(APLUS)
+class AcinerellaNetworkBufferLocalFile : public AcinerellaNetworkBuffer
+{
+public:
+	AcinerellaNetworkBufferLocalFile(AcinerellaNetworkBufferResourceLoaderProvider *resourceProvider, const String &url, size_t readAhead)
+		: AcinerellaNetworkBuffer(resourceProvider, url, readAhead)
+	{
+		String path = URL(URL(), url).fileSystemPath();
+		m_fd = ::open(path.utf8().data(), O_RDONLY | O_CLOEXEC);
+
+		struct stat st;
+		if (m_fd >= 0 && fstat(m_fd, &st) == 0) {
+			m_length = st.st_size;
+		}
+	}
+
+	~AcinerellaNetworkBufferLocalFile()
+	{
+		if (m_fd >= 0) {
+			::close(m_fd);
+		}
+	}
+
+	void start(uint64_t from = 0) override
+	{
+		m_position = from;
+	}
+
+	void stop() override
+	{
+	}
+
+	bool canSeek() override
+	{
+		return m_fd >= 0;
+	}
+
+	int64_t position() override
+	{
+		return m_position;
+	}
+
+	int read(uint8_t *outBuffer, int size, int64_t readPosition) override
+	{
+		if (m_fd < 0) {
+			return eRead_Error;
+		}
+
+		if (readPosition != -1) {
+			m_position = readPosition;
+		}
+
+		ssize_t rc = pread(m_fd, outBuffer, size, m_position);
+		if (rc < 0) {
+			return eRead_Error;
+		}
+
+		m_position += rc;
+		return int(rc);
+	}
+
+private:
+	int m_fd { -1 };
+	int64_t m_position { 0 };
+};
+#endif
+
 RefPtr<AcinerellaNetworkBuffer> AcinerellaNetworkBuffer::create(AcinerellaNetworkBufferResourceLoaderProvider *resourceProvider, const String &url, size_t readAhead)
 {
+#if OS(APLUS)
+	if (startsWithLettersIgnoringASCIICase(url, "file:"))
+		return RefPtr<AcinerellaNetworkBuffer>(WTF::adoptRef(*new AcinerellaNetworkBufferLocalFile(resourceProvider, url, readAhead)));
+#endif
 #if 0
 	if (startsWithLettersIgnoringASCIICase(url, "blob:"))
 		return RefPtr<AcinerellaNetworkBuffer>(WTF::adoptRef(*new AcinerellaNetworkBufferPlatformMediaResourceLoader(resourceProvider, url, readAhead)));

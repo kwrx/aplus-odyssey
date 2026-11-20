@@ -123,6 +123,10 @@
 #define WTF_OS_AROS 1
 #endif
 
+#if defined(__aplus__)
+#define WTF_OS_APLUS 1
+#endif
+
 /* OS(MORPHOS) */
 #if defined(__MORPHOS__)
 #define WTF_OS_MORPHOS 1

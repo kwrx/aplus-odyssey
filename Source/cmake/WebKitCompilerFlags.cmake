@@ -161,7 +161,7 @@ if (COMPILER_IS_GCC_OR_CLANG)
         endif ()
     endif ()
 
-    if (${PORT} STREQUAL "MUI")
+    if ("${PORT}" MATCHES "^(MUI|APLUS)$")
     WEBKIT_PREPEND_GLOBAL_COMPILER_FLAGS(-Wno-unused-parameter
                                          -Wno-write-strings
                                          -Werror)

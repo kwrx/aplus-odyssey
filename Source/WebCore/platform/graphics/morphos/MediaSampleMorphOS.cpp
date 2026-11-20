@@ -1,5 +1,9 @@
 #include "MediaSampleMorphOS.h"
 #include "acinerella.h"
+#if OS(APLUS)
+#include <stdio.h>
+#define dprintf(...) fprintf(stderr, __VA_ARGS__)
+#endif
 
 #if ENABLE(VIDEO)
 

@@ -3,10 +3,16 @@
 #include "MediaPlayerMorphOS.h"
 
 #if ENABLE(VIDEO)
+#if !OS(APLUS)
 #include <proto/ahi.h>
 #include <proto/exec.h>
 #include <proto/dos.h>
 #include <dos/dos.h>
+#endif
+#if OS(APLUS)
+#include <stdio.h>
+#define dprintf(...) fprintf(stderr, __VA_ARGS__)
+#endif
 
 #if OS(AROS)
 #include <aros/debug.h>
@@ -41,6 +47,7 @@ AcinerellaAudioDecoder::AcinerellaAudioDecoder(AcinerellaDecoderClient* client, 
 	}
 }
 
+#if !OS(APLUS)
 void AcinerellaAudioDecoder::startPlaying()
 {
 	D(dprintf("[AD]%s: %p\n", __func__, this));
@@ -65,11 +72,33 @@ void AcinerellaAudioDecoder::stopPlaying()
 	}
 }
 
+#else
+void AcinerellaAudioDecoder::startPlaying()
+{
+	initializeAudio();
+
+	if (m_output)
+	{
+		auto locker = Locker(m_pumpLock);
+		m_playing = true;
+		m_pumpCondition.notifyAll();
+	}
+}
+
+void AcinerellaAudioDecoder::stopPlaying()
+{
+	auto locker = Locker(m_pumpLock);
+	m_playing = false;
+	m_pumpCondition.notifyAll();
+}
+#endif
+
 void AcinerellaAudioDecoder::onCoolDown()
 {
 	ahiCleanup();
 }
 
+#if !OS(APLUS)
 void AcinerellaAudioDecoder::doSetVolume(double volume)
 {
 	if (m_ahiControl)
@@ -83,6 +112,18 @@ bool AcinerellaAudioDecoder::isReadyToPlay() const
 {
 	return isWarmedUp() && m_ahiControl;
 }
+
+#else
+void AcinerellaAudioDecoder::doSetVolume(double volume)
+{
+	m_volume = volume;
+}
+
+bool AcinerellaAudioDecoder::isReadyToPlay() const
+{
+	return isWarmedUp() && m_output;
+}
+#endif
 
 bool AcinerellaAudioDecoder::isWarmedUp() const
 {
@@ -110,6 +151,7 @@ AROS_UFH3(void, AROS_SoundFunc,
 }
 #endif
 
+#if !OS(APLUS)
 bool AcinerellaAudioDecoder::initializeAudio()
 {
 	D(dprintf("[AD]%s:\n", __func__));
@@ -247,6 +289,48 @@ bool AcinerellaAudioDecoder::initializeAudio()
 	return false;
 }
 
+#else
+bool AcinerellaAudioDecoder::initializeAudio()
+{
+	if (m_output)
+		return true;
+
+	m_ahiSampleLength = std::max(256, m_audioRate / 20);
+
+	for (int i = 0; i < 2; i++)
+	{
+		m_ahiSample[i].ahisi_Address = calloc(m_ahiSampleLength, 4);
+		m_ahiSampleTimestamp[i] = 0.0;
+	}
+
+	if (!m_ahiSample[0].ahisi_Address || !m_ahiSample[1].ahisi_Address)
+	{
+		for (int i = 0; i < 2; i++)
+		{
+			free(m_ahiSample[i].ahisi_Address);
+			m_ahiSample[i].ahisi_Address = nullptr;
+		}
+		return false;
+	}
+
+	m_output = makeUnique<AplusAudioOutput>("odyssey", m_audioRate);
+	m_ahiSampleBeingPlayed = 0;
+	m_ahiThreadShuttingDown = false;
+	m_ahiFrameOffset = 0;
+	m_didFlushBuffers = true;
+	m_writtenEnd = -1.0;
+	m_announcedPosition = -1.0;
+	m_resetRequested = false;
+	m_playing = false;
+
+	m_ahiThread = Thread::create("Acinerella Audio Pump", [this] {
+		ahiThreadEntryPoint();
+	});
+
+	return true;
+}
+#endif
+
 void AcinerellaAudioDecoder::onThreadShutdown()
 {
 	ahiCleanup();
@@ -258,6 +342,7 @@ void AcinerellaAudioDecoder::onGetReadyToPlay()
 	initializeAudio();
 }
 
+#if !OS(APLUS)
 void AcinerellaAudioDecoder::ahiCleanup()
 {
 	D(dprintf("[AD]%s:\n", __func__));
@@ -312,6 +397,31 @@ void AcinerellaAudioDecoder::ahiCleanup()
 	D(dprintf("[AD]%s: done\n", __func__));
 }
 
+#else
+void AcinerellaAudioDecoder::ahiCleanup()
+{
+	if (m_ahiThread)
+	{
+		{
+			auto locker = Locker(m_pumpLock);
+			m_ahiThreadShuttingDown = true;
+			m_playing = false;
+			m_pumpCondition.notifyAll();
+		}
+		m_ahiThread->waitForCompletion();
+		m_ahiThread = nullptr;
+	}
+
+	m_output = nullptr;
+
+	for (int i = 0; i < 2; i++)
+	{
+		free(m_ahiSample[i].ahisi_Address);
+		m_ahiSample[i].ahisi_Address = nullptr;
+	}
+}
+#endif
+
 void AcinerellaAudioDecoder::onFrameDecoded(const AcinerellaDecodedFrame &frame)
 {
 	auto *avframe = frame.frame();
@@ -333,6 +443,7 @@ double AcinerellaAudioDecoder::position() const
 	return m_position;
 }
 
+#if !OS(APLUS)
 void AcinerellaAudioDecoder::flush()
 {
 	D(dprintf("[AD]%s: flushing audio\n", __func__));
@@ -385,6 +496,38 @@ void AcinerellaAudioDecoder::flush()
 	}
 }
 
+#else
+void AcinerellaAudioDecoder::flush()
+{
+	{
+		auto locker = Locker(m_pumpLock);
+
+		AcinerellaDecoder::flush();
+
+		m_ahiFrameOffset = 0;
+		m_bufferedSeconds = 0;
+		m_bufferedSamples = 0;
+		m_didFlushBuffers = true;
+		m_position = 0;
+		m_liveTimeCode = 0;
+		m_writtenEnd = -1.0;
+		m_announcedPosition = -1.0;
+		m_resetRequested = true;
+
+		for (int i = 0; i < 2; i++)
+		{
+			if (m_ahiSample[i].ahisi_Address)
+				bzero(m_ahiSample[i].ahisi_Address, m_ahiSampleLength * 4);
+		}
+
+		m_pumpCondition.notifyAll();
+	}
+
+	if (m_playing && m_output)
+		decodeUntilBufferFull();
+}
+#endif
+
 void AcinerellaAudioDecoder::dumpStatus()
 {
 	auto lock = Locker(m_lock);
@@ -392,6 +535,7 @@ void AcinerellaAudioDecoder::dumpStatus()
 		float(bufferSize()), m_bufferedSamples, m_decodedFrames.size(), float(position()), m_isLive, m_isHLS);
 }
 
+#if !OS(APLUS)
 #undef AHI_BASE_NAME
 #define AHI_BASE_NAME me->m_ahiBase
 #if OS(MORPHOS)
@@ -413,6 +557,9 @@ void AcinerellaAudioDecoder::soundFunc(void *ptr)
 
 	Signal(me->m_pumpTask, SIGF_SINGLE);
 }
+
+#else
+#endif
 
 void AcinerellaAudioDecoder::fillBuffer(int index)
 {
@@ -523,6 +670,11 @@ void AcinerellaAudioDecoder::fillBuffer(int index)
 #endif
 	{
 		double positionToAnnounce = index == 0 ? m_ahiSampleTimestamp[1] : m_ahiSampleTimestamp[0];
+#if OS(APLUS)
+		m_chunkTimed = didSetTimecode;
+		if (m_announcedPosition >= 0.0)
+			positionToAnnounce = m_announcedPosition;
+#endif
 		
 		DSYNC(dprintf("[A] %s: PTS %f, bleft %d offset %d timeleft %f dp %d eof %d live %d\n", __func__, positionToAnnounce, bytesLeft, offset, m_bufferedSeconds, didPopFrames, m_decoderEOF, m_isLive));
 
@@ -552,6 +704,7 @@ void AcinerellaAudioDecoder::fillBuffer(int index)
 	}
 }
 
+#if !OS(APLUS)
 void AcinerellaAudioDecoder::ahiThreadEntryPoint()
 {
 	m_pumpTask = FindTask(0);
@@ -564,6 +717,65 @@ void AcinerellaAudioDecoder::ahiThreadEntryPoint()
 	}
 }
 
+#else
+void AcinerellaAudioDecoder::ahiThreadEntryPoint()
+{
+	Vector<int16_t> chunk;
+
+	for (;;)
+	{
+		{
+			auto locker = Locker(m_pumpLock);
+
+			while (!m_ahiThreadShuttingDown && !(m_playing && m_output))
+				m_pumpCondition.waitFor(m_pumpLock, 100_ms);
+
+			if (m_ahiThreadShuttingDown)
+				break;
+
+			if (m_resetRequested)
+			{
+				m_output->reset();
+				m_resetRequested = false;
+				m_writtenEnd = -1.0;
+			}
+
+			if (m_writtenEnd >= 0.0)
+				m_announcedPosition = std::max(0.0, m_writtenEnd - m_output->latency());
+
+			uint32_t index = m_ahiSampleBeingPlayed % 2;
+			m_chunkTimed = false;
+			fillBuffer(index);
+
+			double chunkSeconds = double(m_ahiSampleLength) / double(m_audioRate);
+			if (m_chunkTimed)
+				m_writtenEnd = m_ahiSampleTimestamp[index] + chunkSeconds;
+			else if (m_writtenEnd >= 0.0)
+				m_writtenEnd += chunkSeconds;
+
+			const int16_t *source = reinterpret_cast<const int16_t *>(m_ahiSample[index].ahisi_Address);
+			double volume = m_volume;
+			chunk.resize(m_ahiSampleLength * 2);
+			if (volume >= 0.999)
+			{
+				memcpy(chunk.data(), source, m_ahiSampleLength * 4);
+			}
+			else
+			{
+				int32_t scale = int32_t(std::max(0.0, volume) * 65536.0);
+				for (size_t k = 0; k < chunk.size(); k++)
+					chunk[k] = int16_t((int32_t(source[k]) * scale) >> 16);
+			}
+
+			m_ahiSampleBeingPlayed++;
+		}
+
+		m_output->write(chunk.data(), m_ahiSampleLength, [this] {
+			return m_ahiThreadShuttingDown || !m_playing || m_resetRequested;
+		});
+	}
+}
+#endif
 
 }
 }

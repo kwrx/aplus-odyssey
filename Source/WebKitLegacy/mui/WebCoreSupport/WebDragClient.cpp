@@ -46,8 +46,10 @@
 #include <WebCore/StringTruncator.h>
 
 #include <wtf/text/CString.h>
+#if !OS(APLUS)
 #include "gui.h"
 #include "utils.h"
+#endif
 #include <clib/debug_protos.h>
 #define D(x)
 
@@ -112,6 +114,10 @@ void WebDragClient::startDrag(DragItem item, DataTransfer& dataTransfer, Frame& 
     // Freed only when next drag images comes or when client is destroyed
     m_dragImage = WTFMove(item.image);
 
+#if OS(APLUS)
+    (void)widget;
+    core(m_webView)->dragController().dragEnded();
+#else
     if(widget)
     {
         RefPtr<DataObjectMorphOS> dataObject = dataTransfer.pasteboard().dataObject();
@@ -155,5 +161,6 @@ void WebDragClient::startDrag(DragItem item, DataTransfer& dataTransfer, Frame& 
         set(widget->browser, MA_OWBBrowser_DragOperation, DragOperationNone);
 #endif
     }
+#endif
 }
 

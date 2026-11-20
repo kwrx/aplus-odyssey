@@ -45,7 +45,12 @@
 #include "IconDatabase.h"
 #endif
 
+#if OS(APLUS)
+#include "AplusBrowserHost.h"
+#include <wtf/text/StringConcatenateNumbers.h>
+#else
 #include "gui.h"
+#endif
 #include <clib/debug_protos.h>
 #undef String
 #undef PageGroup
@@ -53,7 +58,11 @@
 using namespace WebCore;
 using namespace std;
 
+#if OS(APLUS)
+#define HISTORYDB makeString(aplusConfigDir(), "/History.db")
+#else
 #define HISTORYDB "PROGDIR:Conf/History.db"
+#endif
 static SQLiteDatabase m_historyDB;
 
 static std::vector<WebHistoryItem *> m_historyList;
@@ -396,7 +405,9 @@ void WebHistory::visitedURL(const char* url, const char* title, const char* http
         if(itemURL == url)
         {
             m_historyList.erase(it, it+1);
+#if !OS(APLUS)
             DoMethod(app, MM_History_Remove, item);
+#endif
             delete item; // Careful with that one
             break;
         }
@@ -409,9 +420,13 @@ void WebHistory::visitedURL(const char* url, const char* title, const char* http
         item->initWithURLString(String::fromUTF8(url), String::fromUTF8(title), lastAccessed);
         m_historyList.push_back(item);
 
+#if OS(APLUS)
+        if (true)
+#else
         DoMethod(app, MM_History_Insert, item);
 
         if(getv(app, MA_OWBApp_SaveHistory))
+#endif
         {
             char *wurl   = (char *) item->URLString();
             char *wtitle = (char *) item->title();

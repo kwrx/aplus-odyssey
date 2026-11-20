@@ -27,6 +27,9 @@
  */
 
 #include "WebDatabaseManager.h"
+#if OS(APLUS)
+#include "AplusBrowserHost.h"
+#endif
 
 #include "WebSecurityOrigin.h"
 
@@ -267,7 +270,11 @@ void WebKitInitializeWebDatabasesIfNecessary()
     if (initialized)
         return;
 
+#if OS(APLUS)
+    WTF::String databasesDirectory = FileSystem::pathByAppendingComponent(String::fromUTF8(aplusConfigDir()), "Databases");
+#else
     WTF::String databasesDirectory = FileSystem::pathByAppendingComponent("PROGDIR:", "Databases");
+#endif
     WebCore::DatabaseManager::singleton().initialize(databasesDirectory);
 
     initialized = true;

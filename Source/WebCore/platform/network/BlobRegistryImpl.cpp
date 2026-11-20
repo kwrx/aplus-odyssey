@@ -47,7 +47,7 @@
 #include <wtf/Scope.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/WorkQueue.h>
-#if PLATFORM(MUI)
+#if PLATFORM(MUI) && !OS(APLUS)
 #include <proto/exec.h>
 #endif
 
@@ -373,8 +373,10 @@ Vector<RefPtr<BlobDataFileReference>> BlobRegistryImpl::filesInBlob(const URL& u
 #if PLATFORM(MUI)
 void shutdownBlobRegistryImpl()
 {
+#if !OS(APLUS)
     if (FindTask("org.webkit.BlobUtility") != NULL)
         delete &blobUtilityQueue();
+#endif
 }
 #endif
 

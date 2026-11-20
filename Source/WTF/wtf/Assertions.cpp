@@ -71,6 +71,16 @@
 extern "C" { void vdprintf(const char *, va_list); }
 #endif
 
+#if OS(APLUS)
+void dprintf(const char* format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    vfprintf(stderr, format, args);
+    va_end(args);
+}
+#endif
+
 namespace WTF {
 
 WTF_ATTRIBUTE_PRINTF(1, 0) static String createWithFormatAndArguments(const char* format, va_list args)

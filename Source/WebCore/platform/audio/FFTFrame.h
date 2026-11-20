@@ -43,6 +43,10 @@
 #include <wtf/Forward.h>
 #include <wtf/UniqueArray.h>
 
+#if OS(APLUS)
+struct AVTXContext;
+#endif
+
 namespace WebCore {
 
 // Defines the interface for an "FFT frame", an object which is able to perform a forward
@@ -102,6 +106,18 @@ private:
     FFTSetup m_FFTSetup;
 
     DSPSplitComplex m_frame;
+#endif
+
+#if OS(APLUS)
+    void createTransforms();
+    void destroyTransforms();
+
+    ::AVTXContext* m_forward { nullptr };
+    ::AVTXContext* m_inverse { nullptr };
+    void (*m_forwardFn)(::AVTXContext*, void*, void*, ptrdiff_t) { nullptr };
+    void (*m_inverseFn)(::AVTXContext*, void*, void*, ptrdiff_t) { nullptr };
+    float* m_timeBuffer { nullptr };
+    float* m_complexBuffer { nullptr };
 #endif
 
 #if USE(GSTREAMER)

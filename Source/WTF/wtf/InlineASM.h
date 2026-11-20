@@ -70,6 +70,7 @@
     || OS(FUCHSIA)             \
     || OS(OPENBSD)             \
     || OS(HPUX)                \
+    || OS(APLUS)               \
     || OS(NETBSD)
     // ELF platform
 #define HIDE_SYMBOL(name) ".hidden " #name
@@ -88,6 +89,7 @@
     || OS(OPENBSD)             \
     || OS(HURD)                \
     || OS(AROS)                \
+    || OS(APLUS)               \
     || OS(NETBSD)              \
     || COMPILER(MINGW)
     // GNU as-compatible syntax.

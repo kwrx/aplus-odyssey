@@ -60,7 +60,11 @@
 
 #if !COMPILER(CLANG) || WTF_CPP_STD_VER >= 14
 
+#if OS(APLUS)
+#include <wtf/Assertions.h>
+#else
 extern "C" { void dprintf(const char *,...); }
+#endif
 
 namespace WTF {
 

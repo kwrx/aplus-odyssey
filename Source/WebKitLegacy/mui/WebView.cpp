@@ -27,6 +27,7 @@
  */
 
 #include "WebView.h"
+#include "WebPlatformStrategies.h"
 #include "WebEditorClient.h"
 
 #include <WebCore/HistoryItem.h>
@@ -175,12 +176,16 @@
 #include "owb-config.h"
 #include "FileIOLinux.h"
 
+#if OS(APLUS)
+#include "AplusBrowserHost.h"
+#else
 #include <proto/exec.h>
 #include <proto/dos.h>
 #include <proto/intuition.h>
 #include <intuition/gadgetclass.h>
 #include "gui.h"
 #include "utils.h"
+#endif
 #undef set
 #undef get
 #undef String
@@ -314,7 +319,11 @@ static void WebKitEnableDiskCacheIfNecessary()
     if (initialized)
         return;
 
+#if OS(APLUS)
+    WTF::String path = FileSystem::pathByAppendingComponent(String::fromUTF8(aplusConfigDir()), "Cache");
+#else
     WTF::String path = FileSystem::pathByAppendingComponent("PROGDIR:Conf", "Cache");
+#endif
 
     if (!path.isNull())
         CurlCacheManager::singleton().setCacheDirectory(path);
@@ -374,6 +383,9 @@ WebView::WebView()
     JSC::initialize();
     WTF::initializeMainThread();
     WebCore::populateJITOperations();
+#if OS(APLUS)
+    WebPlatformStrategies::initialize();
+#endif
 
     d->clearDirtyRegion();
 
@@ -386,7 +398,9 @@ WebView::WebView()
     WebCore::ObserverServiceData::createObserverService()->registerObserver("PopupMenuHide", m_webViewObserver);
 
     WebPreferences* sharedPreferences = WebPreferences::sharedStandardPreferences();
+#if !OS(APLUS)
     sharedPreferences->setContinuousSpellCheckingEnabled(getv(app, MA_OWBApp_ContinuousSpellChecking) != 0);
+#endif
     continuousSpellCheckingEnabled = sharedPreferences->continuousSpellCheckingEnabled();
     grammarCheckingEnabled = sharedPreferences->grammarCheckingEnabled();
     sharedPreferences->willAddToWebView();
@@ -491,7 +505,9 @@ WebView::WebView()
 
     settings.setWebGLEnabled(false);
 
+#if ENABLE(MEDIA_SOURCE)
     settings.setMaximumSourceBufferSize(32 * 1024 * 1024);
+#endif
 
     settings.setXSSAuditorEnabled(true);
     settings.setVisualViewportAPIEnabled(true);
@@ -980,7 +996,12 @@ void WebView::closeWindow()
     BalWidget *widget = m_viewWindow;
     if(widget)
     {
+#if OS(APLUS)
+        if (widget->host)
+            widget->host->closeView();
+#else
         DoMethod(app, MUIM_Application_PushMethod, app, 2, MM_OWBApp_RemoveBrowser, widget->browser);
+#endif
     }
 }
 
@@ -996,7 +1017,11 @@ bool WebView::canHandleRequest(const WebCore::ResourceRequest& request)
     }
     else if (request.url().protocolIs("mailto"))
     {
+#if OS(APLUS)
+        aplusOpenExternal(request.url().string().utf8().data());
+#else
         DoMethod(app, MM_OWBApp_MailTo, request.url().string().latin1().data());
+#endif
         return false;
     }
 
@@ -1207,7 +1232,11 @@ void WebView::setShouldInvertColors(bool shouldInvertColors)
 
 bool WebView::developerExtrasEnabled() const
 {
+#if OS(APLUS)
+    return false;
+#else
     return getv(app, MA_OWBApp_EnableInspector);
+#endif
 
     //if (m_preferences->developerExtrasDisabledByOverride())
     //    return false;
@@ -1225,7 +1254,11 @@ const string& WebView::userAgentForURL(const string& url)
         if (globalUserAgent)
             m_userAgentStandard = globalUserAgent;
         else
+#if OS(APLUS)
+            m_userAgentStandard = (m_viewWindow && m_viewWindow->host && m_viewWindow->host->userAgent()) ? m_viewWindow->host->userAgent() : "";
+#else
             m_userAgentStandard = (char *) getv(app, MA_OWBApp_UserAgent);
+#endif
      
         return m_userAgentStandard;
     }
@@ -1330,6 +1363,10 @@ void WebView::setToolTip(const char* toolTip)
 
     if(widget)
     {
+#if OS(APLUS)
+        if (widget->host)
+            widget->host->setToolTip(toolTip);
+#else
         char *converted = utf8_to_local(toolTip);
 
         if(converted)
@@ -1337,6 +1374,7 @@ void WebView::setToolTip(const char* toolTip)
             SetAttrs(widget->browser, MA_OWBBrowser_ToolTipText, converted, TAG_DONE);
             free(converted);
         }
+#endif
     }
 }
 
@@ -1359,6 +1397,7 @@ void WebView::dispatchDidReceiveIconFromWebFrame(WebFrame* frame)
 {
     registerForIconNotification(false);
 
+#if !OS(APLUS)
     if(getv(app, MA_OWBApp_ShowFavIcons))
     {
         BalWidget *widget = m_viewWindow;
@@ -1367,6 +1406,7 @@ void WebView::dispatchDidReceiveIconFromWebFrame(WebFrame* frame)
             SetAttrs(widget->browser, MA_FavIcon_PageURL, frame->url(), TAG_DONE);
         }
     }
+#endif
 }
 #endif
 
@@ -1841,7 +1881,11 @@ bool WebView::active()
     BalWidget *widget = m_viewWindow;
     if(widget)
     {
+#if OS(APLUS)
+        return widget->host ? widget->host->isActive() : true;
+#else
         return (bool) getv(widget->browser, MA_OWBBrowser_Active);
+#endif
     }
     else
     {
@@ -2035,6 +2079,11 @@ WebHitTestResults* WebView::elementAtPoint(BalPoint& point)
         return 0;
 
     IntPoint webCorePoint(point);
+#if OS(APLUS)
+    if (frame->view()) {
+        webCorePoint = frame->view()->windowToContents(webCorePoint);
+    }
+#endif
     HitTestResult result = HitTestResult(webCorePoint);
     if (frame->contentRenderer()) {
         constexpr OptionSet<HitTestRequest::Type> hitType { HitTestRequest::Type::ReadOnly, HitTestRequest::Type::Active, HitTestRequest::Type::DisallowUserAgentShadowContent, HitTestRequest::Type::AllowChildFrameContent };
@@ -2278,7 +2327,9 @@ void WebView::setContinuousSpellCheckingEnabled(bool flag)
         WebPreferences* prefs = preferences();
         if (prefs)
             prefs->setContinuousSpellCheckingEnabled(flag);
+#if !OS(APLUS)
         SetAttrs(app, MA_OWBApp_ContinuousSpellChecking, flag ? 1 : 0, TAG_DONE);
+#endif
     }
     
     bool spellCheckingEnabled = isContinuousSpellCheckingEnabled();
@@ -2573,7 +2624,11 @@ void WebView::notifyPreferencesChanged(WebPreferences* preferences)
     settings->setStandardFontFamily(str);
 
     /* Following ones need special care because they can be overridden by URLPrefs or temporary menu settings. */
+#if OS(APLUS)
+    applyDefault = true;
+#else
     applyDefault = widget == NULL || (DoMethod(app, MM_URLPrefsGroup_MatchesURL, getv(widget->browser, MA_OWBBrowser_URL)) == 0 && getv(widget->browser, MA_OWBBrowser_JavaScriptEnabled) == JAVASCRIPT_DEFAULT);
+#endif
 
     if(applyDefault)
     {
@@ -2589,7 +2644,11 @@ void WebView::notifyPreferencesChanged(WebPreferences* preferences)
 //        settings->setPrivateBrowsingEnabled(!!enabled);
 //    }
 
+#if OS(APLUS)
+    applyDefault = true;
+#else
     applyDefault = widget == NULL || (DoMethod(app, MM_URLPrefsGroup_MatchesURL, getv(widget->browser, MA_OWBBrowser_URL)) == 0 && getv(widget->browser, MA_OWBBrowser_LoadImagesAutomatically) == IMAGES_DEFAULT);
+#endif
 
     if(applyDefault)
     {
@@ -2597,7 +2656,11 @@ void WebView::notifyPreferencesChanged(WebPreferences* preferences)
         settings->setLoadsImagesAutomatically(!!enabled);
     }
 
+#if OS(APLUS)
+    applyDefault = true;
+#else
     applyDefault = widget == NULL || (DoMethod(app, MM_URLPrefsGroup_MatchesURL, getv(widget->browser, MA_OWBBrowser_URL)) == 0 && getv(widget->browser, MA_OWBBrowser_PluginsEnabled) == PLUGINS_DEFAULT);
+#endif
 
     if(applyDefault)
     {
@@ -2605,7 +2668,11 @@ void WebView::notifyPreferencesChanged(WebPreferences* preferences)
         settings->setPluginsEnabled(!!enabled);
     }
 
+#if OS(APLUS)
+    applyDefault = true;
+#else
     applyDefault = widget == NULL || (DoMethod(app, MM_URLPrefsGroup_MatchesURL, getv(widget->browser, MA_OWBBrowser_URL)) == 0);
+#endif
 
     if(applyDefault)
     {
@@ -3083,7 +3150,9 @@ void WebView::enterFullscreenForNode(WebCore::Node* element)
 
     if(widget)
     {
+#if !OS(APLUS)
         DoMethod(widget->browser, MM_OWBBrowser_VideoEnterFullPage, element, TRUE);
+#endif
     }
 }
 
@@ -3093,7 +3162,9 @@ void WebView::exitFullscreen()
 
     if(widget)
     {
+#if !OS(APLUS)
         DoMethod(widget->browser, MM_OWBBrowser_VideoEnterFullPage, NULL, FALSE);
+#endif
     }
 }
 
@@ -3104,7 +3175,13 @@ void WebView::enterFullScreenForElement(WebCore::Element* element)
 
     if(widget)
     {
+#if OS(APLUS)
+        if (widget->host) {
+            widget->host->setFullScreen(true);
+        }
+#else
         DoMethod(widget->browser, MM_OWBBrowser_VideoEnterFullPage, element, TRUE);
+#endif
     }
 }
 
@@ -3114,7 +3191,13 @@ void WebView::exitFullScreenForElement(WebCore::Element* element)
 
     if(widget)
     {
+#if OS(APLUS)
+        if (widget->host) {
+            widget->host->setFullScreen(false);
+        }
+#else
         DoMethod(widget->browser, MM_OWBBrowser_VideoEnterFullPage, NULL, FALSE);
+#endif
     }
 }
 #endif

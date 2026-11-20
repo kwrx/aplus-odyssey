@@ -51,7 +51,9 @@
 #include <wtf/FileSystem.h>
 #include <wtf/text/Base64.h>
 
-#if PLATFORM(MUI)
+#if OS(APLUS)
+#define D(x)
+#elif PLATFORM(MUI)
 #include "gui.h"
 #include <clib/debug_protos.h>
 #define D(x)
@@ -320,7 +322,7 @@ void ResourceHandle::receivedCredential(const AuthenticationChallenge& challenge
         if (challenge.failureResponse().httpStatusCode() == 401) {
             URL urlToStore = challenge.failureResponse().url();
             d->m_context->storageSession()->credentialStorage().set(partition, credential, challenge.protectionSpace(), urlToStore);
-#if PLATFORM(MUI)
+#if PLATFORM(MUI) && !OS(APLUS)
             String host = challenge.protectionSpace().host();
             String realm = challenge.protectionSpace().realm();
             //kprintf("Storing credentials in db for host %s realm %s (%s %s)\n", host.utf8().data(), realm.utf8().data(), credential.user().utf8().data(), credential.password().utf8().data());

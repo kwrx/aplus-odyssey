@@ -41,10 +41,16 @@
 #include <pthread_np.h>
 #endif
 
-#if OS(LINUX)
+#if OS(LINUX) || OS(APLUS)
 #include <sys/resource.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+#endif
+
+#if OS(APLUS)
+#include <fcntl.h>
+#include <stdlib.h>
+#include <string.h>
 #endif
 
 #endif
@@ -116,8 +122,54 @@ StackBounds StackBounds::newThreadStackBounds(PlatformThreadHandle thread)
 
 #endif // OS(OPENBSD)
 
+#if OS(APLUS)
+static uintptr_t aplusMainStackTop()
+{
+    char buffer[1024];
+    int fd = open("/proc/self/stat", O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        return 0;
+    }
+    ssize_t n = read(fd, buffer, sizeof(buffer) - 1);
+    close(fd);
+    if (n <= 0) {
+        return 0;
+    }
+    buffer[n] = 0;
+    char* p = strrchr(buffer, ')');
+    if (!p) {
+        return 0;
+    }
+    p++;
+    for (int field = 3; field < 28; field++) {
+        p = strchr(p + 1, ' ');
+        if (!p) {
+            return 0;
+        }
+    }
+    return strtoull(p + 1, nullptr, 10);
+}
+#endif
+
 StackBounds StackBounds::currentThreadStackBoundsInternal()
 {
+#if OS(APLUS)
+    if (getpid() == static_cast<pid_t>(syscall(SYS_gettid))) {
+        static uintptr_t top = aplusMainStackTop();
+        int local;
+        uintptr_t here = reinterpret_cast<uintptr_t>(&local);
+        if (top > here) {
+            rlimit limit;
+            getrlimit(RLIMIT_STACK, &limit);
+            uintptr_t size = limit.rlim_cur == RLIM_INFINITY ? 8 * 1024 * 1024 : static_cast<uintptr_t>(limit.rlim_cur);
+            uintptr_t reserve = 64 * 1024;
+            uintptr_t bound = top - size + reserve;
+            if (bound < here) {
+                return StackBounds { reinterpret_cast<void*>(top), reinterpret_cast<void*>(bound) };
+            }
+        }
+    }
+#endif
     auto ret = newThreadStackBounds(pthread_self());
 #if OS(LINUX)
     // on glibc, pthread_attr_getstack will generally return the limit size (minus a guard page)

@@ -1509,7 +1509,7 @@ if (USE_VERSION_STAMPER)
         VERBATIM)
 endif ()
 
-if (${PORT} STREQUAL "MUI")
+if ("${PORT}" MATCHES "^(MUI|APLUS)$")
 else ()
 add_subdirectory(shell)
 endif ()

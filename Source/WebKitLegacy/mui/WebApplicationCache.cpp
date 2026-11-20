@@ -24,6 +24,9 @@
  */
 
 #include "WebApplicationCache.h"
+#if OS(APLUS)
+#include "AplusBrowserHost.h"
+#endif
 
 #include <wtf/RetainPtr.h>
 #include <WebCore/ApplicationCache.h>
@@ -35,7 +38,11 @@ using namespace WebCore;
 
 WebCore::ApplicationCacheStorage& WebApplicationCache::storage()
 {
+#if OS(APLUS)
+    static ApplicationCacheStorage& storage = ApplicationCacheStorage::create(String::fromUTF8(aplusConfigDir()), "ApplicationCache").leakRef();
+#else
     static ApplicationCacheStorage& storage = ApplicationCacheStorage::create("PROGDIR:Conf", "ApplicationCache").leakRef();
+#endif
 
     return storage;
 }

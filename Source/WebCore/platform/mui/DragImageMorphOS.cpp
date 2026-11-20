@@ -27,7 +27,9 @@
 #include "HostWindow.h"
 #include "Image.h"
 #include "RefPtrCairo.h"
+#if !OS(APLUS)
 #include "gui.h"
+#endif
 #include <cairo.h>
 #include <clib/debug_protos.h>
 
@@ -102,10 +104,14 @@ DragImageRef createDragImageForLink(Element& element, URL& url, const String&, T
     FrameView *frameView = element.document().frame()->view();
     BalWidget *widget = frameView->hostWindow()->platformPageClient();
 
+#if !OS(APLUS)
     if(widget)
     {
         set(widget->browser, MA_OWBBrowser_DragURL, url.string().latin1().data());
     }
+#else
+    UNUSED_PARAM(widget);
+#endif
     return nullptr;
 }
 

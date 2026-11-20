@@ -74,7 +74,7 @@
 #define USE_FREETYPE 1
 #endif
 
-#if PLATFORM(GTK) || PLATFORM(WPE)
+#if PLATFORM(GTK) || PLATFORM(WPE) || OS(APLUS)
 #define USE_HARFBUZZ 1
 #endif
 
@@ -282,7 +282,7 @@
 #define USE_CFNETWORK_CONTENT_ENCODING_SNIFFING_OVERRIDE 1
 #endif
 
-#if PLATFORM(MAC) || PLATFORM(WPE) || PLATFORM(GTK) || OS(MORPHOS)
+#if PLATFORM(MAC) || PLATFORM(WPE) || PLATFORM(GTK) || OS(MORPHOS) || OS(APLUS)
 /* FIXME: This really needs a descriptive name, this "new theme" was added in 2008. */
 #define USE_NEW_THEME 1
 #endif

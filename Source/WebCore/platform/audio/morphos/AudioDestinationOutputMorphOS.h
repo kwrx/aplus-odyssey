@@ -3,8 +3,16 @@
 #include <wtf/MessageQueue.h>
 #include <wtf/Threading.h>
 #include <wtf/threads/BinarySemaphore.h>
+#if OS(APLUS)
+#include "AplusAudioOutput.h"
+#include <atomic>
+#include <wtf/Condition.h>
+#include <wtf/Lock.h>
+#endif
+#if !OS(APLUS)
 #include <devices/ahi.h>
 #include <exec/libraries.h>
+#endif
 
 namespace WebCore {
 
@@ -39,6 +47,17 @@ protected:
 protected:
 	AudioDestinationRenderer& m_renderer;
 
+#if OS(APLUS)
+	std::unique_ptr<AplusAudioOutput> m_output;
+	int16_t        *m_buffer[2] = { nullptr, nullptr };
+	uint32_t        m_ahiSampleLength = 0;
+	uint32_t        m_ahiSampleBeingPlayed = 0;
+	Lock            m_pumpLock;
+	Condition       m_pumpCondition;
+	std::atomic<bool> m_running { false };
+	RefPtr<Thread>  m_ahiThread;
+	std::atomic<bool> m_ahiThreadShuttingDown { false };
+#else
 	Library        *m_ahiBase = nullptr;
 	MsgPort        *m_ahiPort = nullptr;
 	AHIRequest     *m_ahiIO = nullptr;
@@ -50,6 +69,7 @@ protected:
 	Task           *m_pumpTask = nullptr;
 	RefPtr<Thread>  m_ahiThread;
 	bool            m_ahiThreadShuttingDown = false;
+#endif
 };
 
 } // namespace

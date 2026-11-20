@@ -53,7 +53,9 @@
 
 #if PLATFORM(MUI)
 #include <cstdint>
+#if !OS(APLUS)
 extern "C" { void dprintf(const char *,... ); }
+#endif
 #undef CRASH
 extern "C" { void _oomCrash() { std::abort(); }; void oomCrash() __attribute__((weak, alias ("_oomCrash"))); }
 #define CRASH oomCrash

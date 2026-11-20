@@ -38,7 +38,9 @@
 
 #include <cstdio>
 #include <clib/debug_protos.h>
+#if !OS(APLUS)
 #include "utils.h"
+#endif
 
 namespace WebCore {
 
@@ -58,6 +60,7 @@ RefPtr<Icon> Icon::createIconForFiles(const Vector<String>& filenames)
     if (filenames.isEmpty())
         return 0;
 
+#if !OS(APLUS)
     // TODO: handle currentdir if only filename is given
 
     String command = "GetDeficonPath PATH=\"" + filenames[0] + "\"";
@@ -74,6 +77,8 @@ RefPtr<Icon> Icon::createIconForFiles(const Vector<String>& filenames)
         icon->m_icon = Image::loadPlatformResource(iconPath.utf8().data());
         return icon;
     }
+
+#endif
 
     return 0;
 }

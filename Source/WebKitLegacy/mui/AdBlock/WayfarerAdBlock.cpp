@@ -27,6 +27,10 @@
 #include "ABPFilterParser.h"
 #include "WebFrame.h"
 #include "WebFrameLoaderClient.h"
+#if OS(APLUS)
+#include "AplusBrowserHost.h"
+#include <wtf/text/StringConcatenateNumbers.h>
+#endif
 
 namespace WayfarerAdBlock {
 
@@ -35,8 +39,13 @@ std::vector<char>    g_urlFilterData;
 
 void initialize()
 {
+#if OS(APLUS)
+	WTF::String easyListPath = makeString(aplusConfigDir(), "/easylist.txt");
+	WTF::String easyListSerializedPath = makeString(aplusConfigDir(), "/easylist.dat");
+#else
 	WTF::String easyListPath = "PROGDIR:Conf/easylist.txt";
 	WTF::String easyListSerializedPath = "PROGDIR:Conf/easylist.dat";
+#endif
 
 	WTF::FileSystemImpl::PlatformFileHandle fh = WTF::FileSystemImpl::openFile(easyListSerializedPath, WTF::FileSystemImpl::FileOpenMode::Read);
 

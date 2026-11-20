@@ -33,7 +33,7 @@
 #include <windows.h>
 #endif
 
-#if PLATFORM(MUI)
+#if OS(AROS)
 #include <exec/tasks.h>
 #include <proto/exec.h>
 #undef Exception
@@ -55,7 +55,7 @@ inline ProcessID getCurrentProcessID()
     return GetCurrentProcessId();
 #elif OS(MORPHOS)
 	return FindTask(0)->tc_ETask->UniqueID;
-#elif PLATFORM(MUI)
+#elif OS(AROS)
     // FIXME: wrong for 64-bits
     return (int) (IPTR) FindTask(NULL);
 #else

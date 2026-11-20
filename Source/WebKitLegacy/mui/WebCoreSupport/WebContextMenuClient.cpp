@@ -44,7 +44,9 @@
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/NotImplemented.h>
 
+#if !OS(APLUS)
 #include "gui.h"
+#endif
 #include <clib/debug_protos.h>
 #undef String
 

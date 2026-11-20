@@ -27,12 +27,15 @@
  */
 
 #include "WebChromeClient.h"
+#if !OS(APLUS)
 #include "ColorChooserController.h"
 #include "DateTimeChooserController.h"
+#endif
 #include <WebCore/ColorChooser.h>
 #include <WebCore/DateTimeChooser.h>
 #include <WebCore/FileChooser.h>
 #include <WebCore/FileIconLoader.h>
+#include <WebCore/HitTestResult.h>
 #include "JSActionDelegate.h"
 #include "WebDesktopNotificationsDelegate.h"
 #include "WebHitTestResults.h"
@@ -64,6 +67,9 @@
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/WindowFeatures.h>
 
+#if OS(APLUS)
+#include "AplusBrowserHost.h"
+#else
 #include "gui.h"
 #include "utils.h"
 #include <proto/intuition.h>
@@ -71,6 +77,7 @@
 #include <proto/asl.h>
 #include "asl.h"
 #undef get
+#endif
 #undef String
 
 #include <cstdio>
@@ -128,9 +135,11 @@ bool WebChromeClient::canTakeFocus(FocusDirection direction)
 
 void WebChromeClient::takeFocus(FocusDirection direction)
 {
+#if !OS(APLUS)
     BalWidget *widget = m_webView->viewWindow();
     if(widget) 
         DoMethod(widget->browser, MM_OWBBrowser_ReturnFocus);
+#endif
 }
 
 void WebChromeClient::focusedElementChanged(Element*) 
@@ -143,6 +152,17 @@ void WebChromeClient::focusedFrameChanged(WebCore::Frame*)
 
 Page* WebChromeClient::createWindow(Frame&, const WindowFeatures& features, const WebCore::NavigationAction& navigationAction)
 {
+#if OS(APLUS)
+    BalWidget *widget = m_webView->viewWindow();
+    if (!widget || !widget->host) {
+        return 0;
+    }
+    BalWidget *created = widget->host->createView(nullptr, features.newPagePolicy == NEWPAGE_POLICY_TAB && features.donotactivate);
+    if (created && created->webView) {
+        return core(created->webView);
+    }
+    return 0;
+#else
     if (features.dialog)
     {
         kprintf("%s: features.dialog not implemented on MorphOS.\n", __PRETTY_FUNCTION__);
@@ -183,6 +203,7 @@ Page* WebChromeClient::createWindow(Frame&, const WindowFeatures& features, cons
     }
 
     return 0;
+#endif
 }
 
 void WebChromeClient::show()
@@ -322,6 +343,11 @@ void WebChromeClient::setStatusbarText(const String& statusText)
 {
     BalWidget *widget = m_webView->viewWindow();
 
+#if OS(APLUS)
+    if (widget && widget->host) {
+        widget->host->setStatusText(statusText.utf8().data());
+    }
+#else
     if(widget)
     {
         CString statusUT8 = statusText.utf8();
@@ -331,6 +357,7 @@ void WebChromeClient::setStatusbarText(const String& statusText)
 
         free(converted_status);
     }
+#endif
 }
 
 KeyboardUIMode WebChromeClient::keyboardUIMode()
@@ -401,6 +428,12 @@ void WebChromeClient::intrinsicContentsSizeChanged(const IntSize&) const
 void WebChromeClient::mouseDidMoveOverElement(const HitTestResult& result, unsigned modifierFlags, const WTF::String& toolTip, WebCore::TextDirection)
 {
     m_webView->setToolTip(toolTip.utf8().data());
+#if OS(APLUS)
+    BalWidget* widget = m_webView->viewWindow();
+    if (widget && widget->host) {
+        widget->host->setHoveredLink(result.absoluteLinkURL().string().utf8().data());
+    }
+#endif
 }
 
 bool WebChromeClient::shouldUnavailablePluginMessageBeButton(RenderEmbeddedObject::PluginUnavailabilityReason pluginUnavailabilityReason) const
@@ -412,14 +445,20 @@ bool WebChromeClient::shouldUnavailablePluginMessageBeButton(RenderEmbeddedObjec
 
 void WebChromeClient::unavailablePluginButtonClicked(Element& element, RenderEmbeddedObject::PluginUnavailabilityReason pluginUnavailabilityReason) const
 {
+#if !OS(APLUS)
     BalWidget *widget = m_webView->viewWindow();
     if(widget)
         DoMethod(widget->window, MM_OWBWindow_LoadURL, "http://fabportnawak.free.fr/owb/plugins/"); // Just a test
+#endif
 }
 
 void WebChromeClient::print(Frame& frame, const WebCore::StringWithDirection&)
 {
+#if OS(APLUS)
+    notImplemented();
+#else
     DoMethod((Object *) getv(app, MA_OWBApp_PrinterWindow), MM_PrinterWindow_PrintDocument, &frame);
+#endif
 }
 
 void WebChromeClient::exceededDatabaseQuota(Frame& frame, const String& databaseIdentifier, DatabaseDetails)
@@ -458,14 +497,22 @@ void WebChromeClient::reachedApplicationCacheOriginQuota(SecurityOrigin&, int64_
 #if ENABLE(INPUT_TYPE_COLOR)
 std::unique_ptr<ColorChooser> WebChromeClient::createColorChooser(ColorChooserClient& chooserClient, const Color&)
 {
+#if OS(APLUS)
+    UNUSED_PARAM(chooserClient);
+    return nullptr;
+#else
     std::unique_ptr<ColorChooserController> controller = std::unique_ptr<ColorChooserController>(new ColorChooserController(this, &chooserClient));
     controller->openUI();
     return controller;
+#endif
 }
 #endif
 
 void WebChromeClient::runOpenPanel(Frame&, FileChooser& prpFileChooser)
 {
+#if OS(APLUS)
+    notImplemented();
+#else
     FileChooser& chooser = prpFileChooser;
     bool multiFile = chooser.settings().allowsMultipleFiles;
 
@@ -509,6 +556,7 @@ void WebChromeClient::runOpenPanel(Frame&, FileChooser& prpFileChooser)
             FreeVecTaskPooled(file);
         }
     }
+#endif
 }
 
 void WebChromeClient::loadIconForFiles(const Vector<WTF::String>& filenames, WebCore::FileIconLoader& loader)   
@@ -649,7 +697,9 @@ void WebChromeClient::didFinishLoadingImageForElement(WebCore::HTMLImageElement&
 
 std::unique_ptr<WebCore::DateTimeChooser> WebChromeClient::createDateTimeChooser(WebCore::DateTimeChooserClient&)
 {
+#if !OS(APLUS)
 asm("int3");
+#endif
     return nullptr;
 }
 

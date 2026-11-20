@@ -60,7 +60,7 @@
 #include <zircon/syscalls.h>
 #endif
 
-#if PLATFORM(MUI)
+#if OS(AROS)
 extern long get_DST_offset(void);
 extern long get_GMT_offset(void);
 #endif

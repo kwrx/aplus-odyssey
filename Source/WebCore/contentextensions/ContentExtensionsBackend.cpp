@@ -51,7 +51,9 @@
 #include <wtf/text/CString.h>
 
 #if PLATFORM(MUI)
+#if !OS(APLUS)
 extern "C" { void dprintf(const char *,...); }
+#endif
 bool shouldLoadResource(const WebCore::ContentExtensions::ResourceLoadInfo& info, WebCore::DocumentLoader& loader);
 #endif
 

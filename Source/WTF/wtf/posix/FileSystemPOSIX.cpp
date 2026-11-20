@@ -36,9 +36,10 @@
 #include <fnmatch.h>
 #endif
 #include <libgen.h>
+#include <limits.h>
 #include <stdio.h>
 #include <sys/stat.h>
-#if !PLATFORM(MUI)
+#if !OS(AROS)
 #include <sys/statvfs.h>
 #endif
 #include <sys/types.h>
@@ -50,7 +51,7 @@
 #include <wtf/text/StringHash.h>
 #include <wtf/HashMap.h>
 
-#if PLATFORM(MUI)
+#if OS(AROS)
 #if OS(MORPHOS)
 #include <libraries/charsets.h>
 #endif
@@ -199,7 +200,7 @@ std::optional<WallTime> fileCreationTime(const String& path)
 
 std::optional<uint32_t> volumeFileBlockSize(const String& path)
 {
-#if !PLATFORM(MUI)
+#if !OS(AROS)
     struct statvfs fileStat;
     if (!statvfs(fileSystemRepresentation(path).data(), &fileStat))
         return fileStat.f_frsize;
@@ -212,7 +213,7 @@ String stringFromFileSystemRepresentation(const char* path)
 {
     if (!path)
         return String();
-#if PLATFORM(MUI)
+#if OS(AROS)
 #if OS(MORPHOS)
 	return String(path, strlen(path), MIBENUM_SYSTEM);
 #endif
@@ -226,7 +227,7 @@ String stringFromFileSystemRepresentation(const char* path)
 
 CString fileSystemRepresentation(const String& path)
 {
-#if PLATFORM(MUI)
+#if OS(AROS)
 	// some fixes for unix style path fuckups here...
 	// file:///progdir:foo will give us /progdir:foo, so let's account for that
 	if (path.contains(':') && path.startsWith('/'))
@@ -248,7 +249,7 @@ String openTemporaryFile(const String& tmpPath, const String& prefix, PlatformFi
     ASSERT_UNUSED(suffix, suffix.isEmpty());
 
     char buffer[PATH_MAX];
-#if PLATFORM(MUI)
+#if OS(AROS)
 	stccpy(buffer, fileSystemRepresentation(tmpPath).data(), sizeof(buffer));
 	auto prefixadd = fileSystemRepresentation(prefix);
 	if (0 == AddPart(buffer, prefixadd.data(), sizeof(buffer)))
@@ -270,7 +271,7 @@ String openTemporaryFile(const String& tmpPath, const String& prefix, PlatformFi
     if (handle < 0)
         goto end;
 
-#if PLATFORM(MUI)
+#if OS(AROS)
 #if OS(MORPHOS)
 	return String(buffer, strlen(buffer), MIBENUM_SYSTEM);
 #endif
@@ -297,7 +298,7 @@ String temporaryFilePathForPrefix(const String& prefix)
 
 void setTemporaryFilePathForPrefix(const char * tmpPath, const String& prefix)
 {
-#if PLATFORM(MUI)
+#if OS(AROS)
 #if OS(MORPHOS)
 	tmpPathPrefixes.set(prefix, String(tmpPath, strlen(tmpPath), MIBENUM_SYSTEM));
 #endif
@@ -309,7 +310,7 @@ void setTemporaryFilePathForPrefix(const char * tmpPath, const String& prefix)
 
 String openTemporaryFile(const String& prefix, PlatformFileHandle& handle, const String& suffix)
 {
-#if PLATFORM(MUI)
+#if OS(AROS)
 	const char* tmpDir = "PROGDIR:Tmp";
 	if (tmpPathPrefixes.contains(prefix))
 	{
@@ -388,7 +389,7 @@ bool makeAllDirectories(const String& path)
 
 String pathByAppendingComponent(const String& path, const String& component)
 {
-#if PLATFORM(MUI)
+#if OS(AROS)
     if (path.endsWith('/') || path.endsWith(':'))
 #else
       if (path.endsWith('/'))

@@ -29,7 +29,9 @@
 #include "config.h"
 #include "MIMETypeRegistry.h"
 
+#if !OS(APLUS)
 #include "gui.h"
+#endif
 
 namespace WebCore {
 
@@ -123,8 +125,8 @@ static const ExtensionMap extensionMap [] = {
     { "audio/x-mpegurl", "m3u" },
 
     // MPEG-4
-    { "video/x-mp4", "mp4" },
     { "video/mp4",   "mp4" },
+    { "video/x-mp4", "mp4" },
     { "video/x-m4v", "m4v" },
     { "audio/x-m4a", "m4a" },
     { "audio/x-m4b", "m4b" },
@@ -160,6 +162,13 @@ static const ExtensionMap extensionMap [] = {
 
     // ADPCM
     { "audio/x-wav", "wav" },
+#if OS(APLUS)
+    { "audio/flac", "flac" },
+    { "audio/opus", "opus" },
+    { "video/x-matroska", "mkv" },
+    { "audio/x-matroska", "mka" },
+    { "video/quicktime", "mov" },
+#endif
 
     { 0, 0 }
 };
@@ -174,6 +183,7 @@ String MIMETypeRegistry::mimeTypeForExtension(const String &ext)
         ++e;
     }
 
+#if !OS(APLUS)
     if(ext != "")
     {
         APTR n;
@@ -193,6 +203,8 @@ String MIMETypeRegistry::mimeTypeForExtension(const String &ext)
         }
     }
 
+#endif
+
     return String();
 }
 
@@ -207,6 +219,7 @@ Vector<String> MIMETypeRegistry::extensionsForMIMEType(const String& type)
         ++e;
     }
 
+#if !OS(APLUS)
     APTR n;
     ITERATELIST(n, &mimetype_list)
     {
@@ -225,6 +238,8 @@ Vector<String> MIMETypeRegistry::extensionsForMIMEType(const String& type)
         }
     }
     
+#endif
+
     return extensions;
 }
 

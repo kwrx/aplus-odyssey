@@ -8,9 +8,17 @@
 #include "../../graphics/morphos/acinerella.h"
 #include "../../graphics/morphos/AcinerellaDecoder.h"
 
+#if !OS(APLUS)
 #include <proto/dos.h>
+#endif
+#if OS(APLUS)
+#include <stdio.h>
+#define dprintf(...) fprintf(stderr, __VA_ARGS__)
+#endif
 
+#if !OS(APLUS)
 extern "C" {void dprintf(const char *,...);}
+#endif
 
 #define DINIT(x)
 #define DDECODE(x) 

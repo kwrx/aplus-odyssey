@@ -47,12 +47,14 @@
 #include <stdlib.h>
 #include <string>
 
+#if !OS(APLUS)
 #include "gui.h"
 #include "utils.h"
 #include <proto/intuition.h>
-#include <clib/debug_protos.h>
 #include <proto/asl.h>
 #include "asl.h"
+#endif
+#include <clib/debug_protos.h>
 #define D(x)
 #undef get
 #undef set

@@ -44,6 +44,9 @@
 #if USE(CURL)
 #include <wtf/URL.h>
 #include <WebCore/CookieJarDB.h>
+#if OS(APLUS)
+#include "AplusBrowserHost.h"
+#endif
 #endif
 
 using namespace WebCore;
@@ -114,10 +117,17 @@ void WebPreferences::removeReferenceForIdentifier(const char* identifier)
 
 void WebPreferences::initializeDefaultSettings()
 {
+#if OS(APLUS)
+    m_privatePrefs[WebKitStandardFontPreferenceKey] = "Noto Serif";
+    m_privatePrefs[WebKitFixedFontPreferenceKey] = "JetBrains Mono";
+    m_privatePrefs[WebKitSerifFontPreferenceKey] = "Noto Serif";
+    m_privatePrefs[WebKitSansSerifFontPreferenceKey] = "Noto Sans";
+#else
     m_privatePrefs[WebKitStandardFontPreferenceKey] = "Bitstream Vera Sans";
     m_privatePrefs[WebKitFixedFontPreferenceKey] = "Bitstream Vera Sans Mono";
     m_privatePrefs[WebKitSerifFontPreferenceKey] = "Bitstream Vera Serif";
     m_privatePrefs[WebKitSansSerifFontPreferenceKey] = "Bitstream Vera Sans";
+#endif
     m_privatePrefs[WebKitCursiveFontPreferenceKey] = "Comic Sans MS";
     m_privatePrefs[WebKitFantasyFontPreferenceKey] = "Comic Sans MS";
     m_privatePrefs[WebKitPictographFontPreferenceKey] = "Times New Roman";
@@ -169,7 +179,11 @@ void WebPreferences::initializeDefaultSettings()
     m_privatePrefs[WebKitRequestAnimationFrameEnabledPreferenceKey] = "1";
     m_privatePrefs[WebKitHistoryItemLimitKey] = "10";
     m_privatePrefs[WebKitHistoryAgeInDaysLimitKey] = "7";
+#if OS(APLUS)
+    m_privatePrefs[WebKitIconDatabaseLocationKey] = aplusConfigDir();
+#else
     m_privatePrefs[WebKitIconDatabaseLocationKey] = "PROGDIR:Conf";
+#endif
     m_privatePrefs[WebKitIconDatabaseEnabledPreferenceKey] = "1";
     m_privatePrefs[WebKitFontSmoothingTypePreferenceKey] = "2";
     m_privatePrefs[WebKitFontSmoothingContrastPreferenceKey] = "2";
@@ -178,7 +192,12 @@ void WebPreferences::initializeDefaultSettings()
     m_privatePrefs[WebGrammarCheckingEnabledPreferenceKey] = "1";
     m_privatePrefs[AllowContinuousSpellCheckingPreferenceKey] = "1";
     m_privatePrefs[WebKitUsesPageCachePreferenceKey] = "1";
+#if OS(APLUS)
+    m_privatePrefs[WebKitLocalStorageDatabasePathPreferenceKey] = std::string(aplusConfigDir()) + "/LocalStorage";
+    m_privatePrefs[WebKitMediaSourceEnabledPreferenceKey] = "1";
+#else
     m_privatePrefs[WebKitLocalStorageDatabasePathPreferenceKey] = "PROGDIR:Conf/LocalStorage";
+#endif
 
 
     m_privatePrefs[WebKitCacheModelPreferenceKey] = String::number(WebCacheModelDocumentBrowser).latin1().data();

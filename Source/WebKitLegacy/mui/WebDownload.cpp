@@ -56,7 +56,11 @@
 
 #include "NetworkStorageSessionMap.h"
 
+#if OS(APLUS)
+#include "AplusBrowserHost.h"
+#else
 #include "gui.h"
+#endif
 #include <clib/debug_protos.h>
 
 using namespace WebCore;
@@ -485,7 +489,11 @@ void WebDownload::start(bool quiet)
     // Else, honor download general setting
     else
     {
+#if OS(APLUS)
+        m_priv->quiet = true;
+#else
         m_priv->quiet = getv(app, MA_OWBApp_DownloadStartAutomatically);
+#endif
     }
 
     //kprintf("quiet %d\n", m_priv->quiet);

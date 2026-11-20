@@ -86,11 +86,15 @@
 #include <JavaScriptCore/APICast.h>
 #include <WebCore/NetworkStorageSession.h>
 
+#if OS(APLUS)
+#include "AplusBrowserHost.h"
+#else
 #include "AutofillManager.h"
 #include "gui.h"
 #include "utils.h"
 #include <proto/dos.h>
 #include <proto/intuition.h>
+#endif
 #include <clib/debug_protos.h>
 #undef get
 #undef String
@@ -169,7 +173,12 @@ void WebFrameLoaderClient::dispatchDidReceiveAuthenticationChallenge(DocumentLoa
     String realm = challenge.protectionSpace().realm();
     CredentialPersistence persistence = CredentialPersistenceNone;
     
+#if OS(APLUS)
+    BalWidget* loginWidget = m_webFrame->webView()->viewWindow();
+    if (loginWidget && loginWidget->host && loginWidget->host->login(host.utf8().data(), realm.utf8().data(), &username, &password))
+#else
     if(DoMethod(app, MM_OWBApp_Login, host.utf8().data(), realm.utf8().data(), &username, &password, &persistence))
+#endif
     {
     Credential credential = Credential(username, password, persistence);
     free(username);
@@ -350,7 +359,12 @@ void WebFrameLoaderClient::dispatchDidFinishLoad()
 
 Frame* WebFrameLoaderClient::dispatchCreatePage(const WebCore::NavigationAction&,  WebCore::NewFrameOpenerPolicy)
 {
+#if OS(APLUS)
+    BalWidget *opener = m_webFrame->webView()->viewWindow();
+    BalWidget *widget = opener && opener->host ? opener->host->createView(nullptr, false) : nullptr;
+#else
     BalWidget *widget = (BalWidget *) DoMethod(app, MM_OWBApp_AddPage, NULL, FALSE, FALSE, NULL, NULL, getv(m_webFrame->webView()->viewWindow()->browser, MA_OWBBrowser_PrivateBrowsing), FALSE);
+#endif
 
     if(widget && widget->webView)
     {
@@ -498,7 +512,11 @@ void WebFrameLoaderClient::setTitle(const WebCore::StringWithDirection& title, c
     if(widget)
     {
     // We don't use the global preference private setting
+#if OS(APLUS)
+    privateBrowsingEnabled = widget->host && widget->host->privateBrowsing();
+#else
     privateBrowsingEnabled = getv(widget->browser, MA_OWBBrowser_PrivateBrowsing) != FALSE;
+#endif
     }
 
     if (privateBrowsingEnabled)
@@ -611,11 +629,13 @@ void WebFrameLoaderClient::detachedFromParent3()
 
 void WebFrameLoaderClient::dispatchWillSubmitForm(FormState& formState, CompletionHandler<void()>&& completionHandler)
 {
+#if !OS(APLUS)
     Object * browser = m_webFrame->webView()->viewWindow()->browser;
     if(!getv(browser, MA_OWBBrowser_PrivateBrowsing))
     {
         DoMethod(browser, MM_OWBBrowser_Autofill_SaveTextFields, &formState.form());
     }
+#endif
 
     // XXX: save credentials here as well instead of doing it in the defaultpolicydelegate, since it's a bit clumsy
 
@@ -624,11 +644,13 @@ void WebFrameLoaderClient::dispatchWillSubmitForm(FormState& formState, Completi
 
 void WebFrameLoaderClient::dispatchWillSendSubmitEvent(Ref<WebCore::FormState>&& formState)
 {
+#if !OS(APLUS)
     Object * browser = m_webFrame->webView()->viewWindow()->browser;
     if(!getv(browser, MA_OWBBrowser_PrivateBrowsing))
     {
         DoMethod(browser, MM_OWBBrowser_Autofill_SaveTextFields, &formState->form());
     }
+#endif
 }
 
 void WebFrameLoaderClient::revertToProvisionalState(DocumentLoader*)

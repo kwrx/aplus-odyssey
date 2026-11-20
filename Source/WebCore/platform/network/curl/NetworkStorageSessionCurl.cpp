@@ -35,6 +35,11 @@
 #include <wtf/FileSystem.h>
 #include <wtf/URL.h>
 #include <wtf/text/StringBuilder.h>
+#include <wtf/text/StringConcatenateNumbers.h>
+
+#if OS(APLUS)
+#include "AplusBrowserHost.h"
+#endif
 
 namespace WebCore {
 
@@ -44,7 +49,9 @@ static String defaultCookieJarPath()
 	return "PROGDIR:Cache/cookie.jar.db";
 #else
     static const char* defaultFileName = "cookie.jar.db";
-#if PLATFORM(MUI)
+#if OS(APLUS)
+    return makeString(aplusConfigDir(), "/", defaultFileName);
+#elif PLATFORM(MUI)
     return "PROGDIR:Conf/" + String(defaultFileName);
 #else
     char* cookieJarPath = getenv("CURL_COOKIE_JAR_PATH");

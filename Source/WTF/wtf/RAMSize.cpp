@@ -30,7 +30,7 @@
 
 #if OS(WINDOWS)
 #include <windows.h>
-#elif PLATFORM(MUI)
+#elif OS(AROS)
 #include <proto/exec.h>
 #elif defined(USE_SYSTEM_MALLOC) && USE_SYSTEM_MALLOC
 #if OS(LINUX)
@@ -61,7 +61,7 @@ static size_t computeRAMSize()
     if (!result)
         return ramSizeGuess;
     return status.ullTotalPhys;
-#elif PLATFORM(MUI)
+#elif OS(AROS)
     static const char * ramSizeSetting = getenv("OWB_RAM_SIZE");
     size_t size = 0;
     if(ramSizeSetting)

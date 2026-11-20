@@ -31,7 +31,11 @@ namespace WebCore {
 
 void CurlSSLHandle::platformInitialize()
 {
+#if OS(APLUS)
+    String caCertPath = "/etc/ssl/cert.pem";
+#else
     String caCertPath = "ENV:SYS/Certificates/ca-bundle.crt";
+#endif
     setCACertPath(WTFMove(caCertPath));
 }
 

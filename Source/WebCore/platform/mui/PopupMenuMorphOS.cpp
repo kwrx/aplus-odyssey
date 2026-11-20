@@ -86,6 +86,7 @@ void PopupMenuMorphOS::disconnectClient()
 void PopupMenuMorphOS::calculatePositionAndSize(const IntRect& r, FrameView* v)
 {
     IntRect rScreenCoords(v->contentsToWindow(r.location()), r.size());
+    m_anchorRect = rScreenCoords;
     rScreenCoords.setY(rScreenCoords.y() + rScreenCoords.height());
 
     m_itemHeight = rScreenCoords.height();

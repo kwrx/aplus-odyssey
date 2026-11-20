@@ -1,6 +1,10 @@
 #include "config.h"
 
 #include "VideoTrackPrivateMorphOS.h"
+#if OS(APLUS)
+#include <stdio.h>
+#define dprintf(...) fprintf(stderr, __VA_ARGS__)
+#endif
 
 #define D(x) 
 

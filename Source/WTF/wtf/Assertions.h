@@ -71,6 +71,8 @@ extern "C" void _ReadWriteBarrier(void);
 
 #if OS(MORPHOS)
 extern "C" { void dprintf(const char *, ...); }
+#elif OS(APLUS)
+WTF_EXPORT_PRIVATE void dprintf(const char*, ...) __attribute__((__format__(printf, 1, 2)));
 #endif
 
 /* ASSERT_ENABLED is defined in Platform.h. */

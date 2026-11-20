@@ -34,7 +34,9 @@
 #if OS(MORPHOS)
 #include "Altivec.h"
 #endif
+#if !OS(APLUS)
 #include <proto/exec.h>
+#endif
 
 namespace WebCore {
 

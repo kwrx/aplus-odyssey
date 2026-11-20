@@ -49,6 +49,54 @@ typedef GdkEventScroll BalEventScroll;
 typedef GdkPoint BalPoint;
 typedef GdkRectangle BalRectangle;
 
+#elif OS(APLUS)
+
+#include <cairo.h>
+#include "AplusEvents.h"
+
+class WebView;
+class AplusBrowserHost;
+struct _cairo;
+struct _cairo_surface;
+
+struct viewnode
+{
+  AplusBrowserHost *host;
+
+  WebView *webView;
+  _cairo_surface *surface;
+  _cairo *cr;
+
+  bool expose;
+};
+
+typedef struct viewnode BalWidget;
+typedef _cairo_surface BalSurface;
+
+struct MorphOSResizeEvent
+{
+  int w, h;
+};
+
+typedef int BalEventExpose;
+typedef struct MorphOSResizeEvent BalResizeEvent;
+typedef int BalQuitEvent;
+typedef int BalUserEvent;
+typedef struct AplusKeyEvent BalEventKey;
+typedef struct AplusPointerEvent BalEventButton;
+typedef struct AplusPointerEvent BalEventMotion;
+typedef struct AplusScrollEvent BalEventScroll;
+
+typedef struct _BalPoint{
+  int x;
+  int y;
+} BalPoint;
+
+typedef struct _BalRectangle{
+  int x, y;
+  int w, h;
+} BalRectangle;
+
 #elif PLATFORM(MUI)
 
 #include <cairo.h>

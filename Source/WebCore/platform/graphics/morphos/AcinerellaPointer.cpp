@@ -3,7 +3,13 @@
 #if ENABLE(VIDEO)
 
 #include <wtf/RefPtr.h>
+#if !OS(APLUS)
 #include <proto/exec.h>
+#endif
+#if OS(APLUS)
+#include <stdio.h>
+#define dprintf(...) fprintf(stderr, __VA_ARGS__)
+#endif
 
 #define D(x) 
 

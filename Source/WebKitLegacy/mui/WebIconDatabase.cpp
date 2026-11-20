@@ -41,7 +41,9 @@
 #include <wtf/MainThread.h>
 #include "ObserverServiceData.h"
 
+#if !OS(APLUS)
 #include "gui.h"
+#endif
 #undef set
 #undef get
 #undef String
@@ -317,7 +319,9 @@ static void postDidRemoveAllIconsNotification(WebIconDatabase* iconDB)
 
 static void postDidAddIconNotification(String pageURL, WebIconDatabase* iconDB)
 {
+#if !OS(APLUS)
     SetAttrs(app, MA_OWBApp_DidReceiveFavIcon, pageURL.utf8().data(), TAG_DONE);
+#endif
     D(kprintf("postDidAddIconNotification(%s)\n", pageURL.utf8().data()));
     WebCore::ObserverServiceData::createObserverService()->notifyObserver(WebIconDatabase::iconDatabaseDidAddIconNotification(), pageURL, iconDB);
 }
@@ -355,7 +359,9 @@ bool operator<(BalPoint p1, BalPoint p2)
 void WebIconDatabase::didFinishURLIconImport()
 {
     D(kprintf("WebIconDatabase::didFinishURLIconImport()\n"));
+#if !OS(APLUS)
     SetAttrs(app, MA_OWBApp_FavIconImportComplete, TRUE, TAG_DONE);
+#endif
     //allowDatabaseCleanup();
 }
 

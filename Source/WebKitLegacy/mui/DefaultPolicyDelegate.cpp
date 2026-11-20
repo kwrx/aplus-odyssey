@@ -50,10 +50,12 @@
  #include <unistd.h> 
 #endif
 
+#if !OS(APLUS)
 #include "gui.h"
 #include "utils.h"
 #include <proto/dos.h>
 #include <proto/intuition.h>
+#endif
 #include <clib/debug_protos.h>
 #undef get
 #undef String
@@ -102,13 +104,19 @@ void DefaultPolicyDelegate::decidePolicyForNavigationAction(WebView* webView,
     // XXX: move that to webframeloaderlient event directly to use form
     if (navType == WebNavigationTypeFormSubmitted)
     {
+#if !OS(APLUS)
         DoMethod(app, MM_OWBApp_SaveFormState, webView, frame);
+#endif
     }
 
     if (navType == WebNavigationTypeFormResubmitted)
     {
         // XXX: move that to an app method
+#if OS(APLUS)
+        int ret = 1;
+#else
         ULONG ret = MUI_RequestA(app, NULL, 0, GSI(MSG_REQUESTER_NORMAL_TITLE), GSI(MSG_REQUESTER_YES_NO), GSI(MSG_DEFAULTPOLICYDELEGATE_MESSAGE), NULL);
+#endif
 
         switch(ret)
         {
@@ -164,7 +172,16 @@ bool DefaultPolicyDelegate::decidePolicyForMIMEType(
     /*[in]*/ WebFrame* frame,
     /*[in]*/ WebFramePolicyListener* listener)
 {
+#if OS(APLUS)
+    if (webView->canShowMIMEType(response.mimeType().utf8().data())) {
+        listener->use();
+    } else {
+        listener->download();
+    }
+    return true;
+#else
     return DoMethod(app, MM_OWBApp_RequestPolicyForMimeType, (APTR) &response, (APTR) request, (APTR) webView, (APTR) frame, (APTR) listener);
+#endif
 }
 
 void DefaultPolicyDelegate::unableToImplementPolicyWithError(
