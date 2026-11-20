@@ -526,6 +526,33 @@ WebView::WebView()
     settings.setTouchEventEmulationEnabled(false);
 
     settings.setRequestAnimationFrameEnabled(true);
+#if OS(APLUS)
+    settings.setCSSCascadeLayersEnabled(true);
+    settings.setHasPseudoClassEnabled(true);
+    settings.setFocusVisibleEnabled(true);
+    settings.setOverflowClipEnabled(true);
+    settings.setCSSColorMixEnabled(true);
+    settings.setLazyImageLoadingEnabled(true);
+    settings.setCSSContainmentEnabled(true);
+    settings.setBroadcastChannelEnabled(true);
+    RuntimeEnabledFeatures::sharedFeatures().setDialogElementEnabled(true);
+    settings.setRequestIdleCallbackEnabled(true);
+    settings.setInertAttributeEnabled(true);
+    settings.setRequestSubmitEnabled(true);
+    settings.setCSSOMViewSmoothScrollingEnabled(true);
+    settings.setOverscrollBehaviorEnabled(true);
+    settings.setCSSCustomPropertiesAndValuesEnabled(true);
+    settings.setCSSCounterStyleAtRulesEnabled(true);
+    settings.setReferrerPolicyAttributeEnabled(true);
+    settings.setLinkPreloadResponsiveImagesEnabled(true);
+    settings.setCSSIndividualTransformPropertiesEnabled(true);
+    settings.setAspectRatioEnabled(true);
+    settings.setBeaconAPIEnabled(true);
+    RuntimeEnabledFeatures::sharedFeatures().setReadableByteStreamAPIEnabled(true);
+    RuntimeEnabledFeatures::sharedFeatures().setWritableStreamAPIEnabled(true);
+    RuntimeEnabledFeatures::sharedFeatures().setTransformStreamAPIEnabled(true);
+    RuntimeEnabledFeatures::sharedFeatures().setPaintTimingEnabled(true);
+#endif
 //
 
 
