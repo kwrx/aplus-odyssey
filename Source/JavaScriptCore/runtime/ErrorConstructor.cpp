@@ -21,7 +21,10 @@
 #include "config.h"
 #include "ErrorConstructor.h"
 
+#include "ErrorInstance.h"
 #include "ErrorPrototype.h"
+#include "Interpreter.h"
+#include "StackFrame.h"
 #include "JSCInlines.h"
 
 namespace JSC {
@@ -32,6 +35,7 @@ const ClassInfo ErrorConstructor::s_info = { "Function", &Base::s_info, nullptr,
 
 static JSC_DECLARE_HOST_FUNCTION(callErrorConstructor);
 static JSC_DECLARE_HOST_FUNCTION(constructErrorConstructor);
+static JSC_DECLARE_HOST_FUNCTION(errorConstructorCaptureStackTrace);
 
 ErrorConstructor::ErrorConstructor(VM& vm, Structure* structure)
     : InternalFunction(vm, structure, callErrorConstructor, constructErrorConstructor)
@@ -44,6 +48,8 @@ void ErrorConstructor::finishCreation(VM& vm, ErrorPrototype* errorPrototype)
     // ECMA 15.11.3.1 Error.prototype
     putDirectWithoutTransition(vm, vm.propertyNames->prototype, errorPrototype, PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly);
     putDirectWithoutTransition(vm, vm.propertyNames->stackTraceLimit, jsNumber(globalObject()->stackTraceLimit().value_or(Options::defaultErrorStackTraceLimit())), static_cast<unsigned>(PropertyAttribute::None));
+    JSGlobalObject* globalObject = this->globalObject();
+    JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION("captureStackTrace", errorConstructorCaptureStackTrace, static_cast<unsigned>(PropertyAttribute::DontEnum), 2);
 }
 
 // ECMA 15.9.3
@@ -68,6 +74,27 @@ JSC_DEFINE_HOST_FUNCTION(callErrorConstructor, (JSGlobalObject* globalObject, Ca
     JSValue options = callFrame->argument(1);
     Structure* errorStructure = globalObject->errorStructure();
     return JSValue::encode(ErrorInstance::create(globalObject, errorStructure, message, options, nullptr, TypeNothing, ErrorType::Error, false));
+}
+
+JSC_DEFINE_HOST_FUNCTION(errorConstructorCaptureStackTrace, (JSGlobalObject* globalObject, CallFrame* callFrame))
+{
+    VM& vm = globalObject->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+    JSValue objectArgument = callFrame->argument(0);
+    if (!objectArgument.isObject()) {
+        return throwVMTypeError(globalObject, scope, "Error.captureStackTrace requires an object argument"_s);
+    }
+    JSObject* object = asObject(objectArgument);
+    if (auto* errorInstance = jsDynamicCast<ErrorInstance*>(vm, object)) {
+        errorInstance->materializeErrorInfoIfNeeded(vm);
+    }
+    Vector<StackFrame> stackTrace;
+    if (auto limit = globalObject->stackTraceLimit()) {
+        vm.interpreter->getStackTrace(object, stackTrace, 1, limit.value());
+    }
+    object->putDirect(vm, vm.propertyNames->stack, jsString(vm, Interpreter::stackTraceAsString(vm, stackTrace)), static_cast<unsigned>(PropertyAttribute::DontEnum));
+    RETURN_IF_EXCEPTION(scope, { });
+    return JSValue::encode(jsUndefined());
 }
 
 bool ErrorConstructor::put(JSCell* cell, JSGlobalObject* globalObject, PropertyName propertyName, JSValue value, PutPropertySlot& slot)

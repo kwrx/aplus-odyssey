@@ -89,6 +89,8 @@ const ClassInfo StringPrototype::s_info = { "String", &StringObject::s_info, &st
 
 /* Source for StringConstructor.lut.h
 @begin stringPrototypeTable
+    isWellFormed  JSBuiltin    DontEnum|Function 0
+    toWellFormed  JSBuiltin    DontEnum|Function 0
     concat        JSBuiltin    DontEnum|Function 1
     match         JSBuiltin    DontEnum|Function 1
     matchAll      JSBuiltin    DontEnum|Function 1

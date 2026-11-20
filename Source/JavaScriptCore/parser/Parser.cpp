@@ -2874,6 +2874,7 @@ template <class TreeBuilder> TreeStatement Parser<LexerType>::parseClassDeclarat
 
 static constexpr ASCIILiteral instanceComputedNamePrefix { "instanceComputedName"_s };
 static constexpr ASCIILiteral staticComputedNamePrefix { "staticComputedName"_s };
+static constexpr ASCIILiteral staticBlockNamePrefix { "staticBlock"_s };
 
 template <typename LexerType>
 template <class TreeBuilder> TreeClassExpression Parser<LexerType>::parseClass(TreeBuilder& context, FunctionNameRequirements requirements, ParserClassInfo<TreeBuilder>& info)
@@ -2948,6 +2949,7 @@ template <class TreeBuilder> TreeClassExpression Parser<LexerType>::parseClass(T
     TreePropertyList classElementsTail = 0;
     unsigned nextInstanceComputedFieldID = 0;
     unsigned nextStaticComputedFieldID = 0;
+    unsigned nextStaticBlockID = 0;
     while (!match(CLOSEBRACE)) {
         if (match(SEMICOLON)) {
             next();
@@ -2968,6 +2970,25 @@ template <class TreeBuilder> TreeClassExpression Parser<LexerType>::parseClass(T
                 restoreSavePoint(context, savePoint);
             } else
                 tag = ClassElementTag::Static;
+        }
+
+        if (tag == ClassElementTag::Static && match(OPENBRACE)) {
+            {
+                AutoPopScopeRef staticBlockScope(this, pushScope());
+                staticBlockScope->setSourceParseMode(SourceParseMode::MethodMode);
+                staticBlockScope->setExpectedSuperBinding(SuperBinding::Needed);
+                SetForScope<bool> overrideParsingClassFieldInitializer(m_parserState.isParsingClassFieldInitializer, true);
+                failIfFalse(parseBlockStatement(context), "Cannot parse class static block");
+                popScope(staticBlockScope, TreeBuilder::NeedsFreeVariableInfo);
+            }
+            const Identifier* blockIdent = &m_parserArena.identifierArena().makePrivateIdentifier(m_vm, staticBlockNamePrefix, nextStaticBlockID++);
+            TreeProperty blockProperty = context.createProperty(blockIdent, 0, PropertyNode::Constant, SuperBinding::NotNeeded, InferName::Disallowed, ClassElementTag::Static);
+            if (classElementsTail) {
+                classElementsTail = context.createPropertyList(methodLocation, blockProperty, classElementsTail);
+            } else {
+                classElements = classElementsTail = context.createPropertyList(methodLocation, blockProperty);
+            }
+            continue;
         }
 
         // FIXME: Figure out a way to share more code with parseProperty.
@@ -3215,6 +3236,12 @@ template <class TreeBuilder> TreeSourceElements Parser<LexerType>::parseClassFie
             auto* staticIdentifier = m_token.m_data.ident;
             ASSERT(staticIdentifier);
             next();
+            if (match(OPENBRACE)) {
+                TreeStatement block = parseBlockStatement(context);
+                failIfFalse(block, "Cannot parse class static block");
+                context.appendStatement(sourceElements, block);
+                continue;
+            }
             if (match(SEMICOLON) || match (EQUAL) || match(CLOSEBRACE) || m_lexer->hasLineTerminatorBeforeToken())
                 ident = staticIdentifier;
             else

@@ -455,3 +455,61 @@ function sup()
     "use strict";
     return @createHTML("String.prototype.sup", this, "sup", "", "");
 }
+
+function isWellFormed()
+{
+    "use strict";
+
+    if (@isUndefinedOrNull(this))
+        @throwTypeError("String.prototype.isWellFormed requires that |this| not be null or undefined");
+
+    var string = @toString(this);
+    var length = string.length;
+    for (var i = 0; i < length; ++i) {
+        var c = string.@charCodeAt(i);
+        if (c >= 0xD800 && c <= 0xDBFF) {
+            if (i + 1 < length) {
+                var d = string.@charCodeAt(i + 1);
+                if (d >= 0xDC00 && d <= 0xDFFF) {
+                    ++i;
+                    continue;
+                }
+            }
+            return false;
+        }
+        if (c >= 0xDC00 && c <= 0xDFFF)
+            return false;
+    }
+    return true;
+}
+
+function toWellFormed()
+{
+    "use strict";
+
+    if (@isUndefinedOrNull(this))
+        @throwTypeError("String.prototype.toWellFormed requires that |this| not be null or undefined");
+
+    var string = @toString(this);
+    var length = string.length;
+    var result = "";
+    var start = 0;
+    for (var i = 0; i < length; ++i) {
+        var c = string.@charCodeAt(i);
+        if (c >= 0xD800 && c <= 0xDBFF) {
+            if (i + 1 < length) {
+                var d = string.@charCodeAt(i + 1);
+                if (d >= 0xDC00 && d <= 0xDFFF) {
+                    ++i;
+                    continue;
+                }
+            }
+        } else if (c < 0xDC00 || c > 0xDFFF)
+            continue;
+        result += @stringSubstringInternal.@call(string, start, i) + "\uFFFD";
+        start = i + 1;
+    }
+    if (!start)
+        return string;
+    return result + @stringSubstringInternal.@call(string, start, length);
+}

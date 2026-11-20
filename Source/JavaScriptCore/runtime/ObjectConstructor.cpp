@@ -81,6 +81,7 @@ const ClassInfo ObjectConstructor::s_info = { "Function", &InternalFunction::s_i
   values                    objectConstructorValues                     DontEnum|Function 1
   entries                   objectConstructorEntries                    DontEnum|Function 1
   fromEntries               JSBuiltin                                   DontEnum|Function 1
+  groupBy                   JSBuiltin                                   DontEnum|Function 2
 @end
 */
 

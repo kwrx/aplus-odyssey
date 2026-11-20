@@ -51,6 +51,7 @@ const ClassInfo JSPromiseConstructor::s_info = { "Function", &Base::s_info, &pro
   all             JSBuiltin             DontEnum|Function 1
   allSettled      JSBuiltin             DontEnum|Function 1
   any             JSBuiltin             DontEnum|Function 1
+  withResolvers   JSBuiltin             DontEnum|Function 0
 @end
 */
 

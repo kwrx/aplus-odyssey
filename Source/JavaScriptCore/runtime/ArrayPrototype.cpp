@@ -118,6 +118,10 @@ void ArrayPrototype::finishCreation(VM& vm, JSGlobalObject* globalObject)
 
     if (Options::useAtMethod())
         JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().atPublicName(), arrayPrototypeAtCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
+    JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION("toReversed", arrayPrototypeToReversedCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
+    JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION("toSorted", arrayPrototypeToSortedCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
+    JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION("toSpliced", arrayPrototypeToSplicedCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
+    JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION("with", arrayPrototypeWithMethodCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
 
     putDirectWithoutTransition(vm, vm.propertyNames->builtinNames().entriesPrivateName(), getDirect(vm, vm.propertyNames->builtinNames().entriesPublicName()), static_cast<unsigned>(PropertyAttribute::ReadOnly));
     putDirectWithoutTransition(vm, vm.propertyNames->builtinNames().forEachPrivateName(), getDirect(vm, vm.propertyNames->builtinNames().forEachPublicName()), static_cast<unsigned>(PropertyAttribute::ReadOnly));
@@ -144,6 +148,9 @@ void ArrayPrototype::finishCreation(VM& vm, JSGlobalObject* globalObject)
     for (const auto* unscopableName : unscopableNames) {
         if (unscopableName)
             unscopables->putDirect(vm, *unscopableName, jsBoolean(true));
+    }
+    for (const char* name : { "toReversed", "toSorted", "toSpliced" }) {
+        unscopables->putDirect(vm, Identifier::fromString(vm, name), jsBoolean(true));
     }
     putDirectWithoutTransition(vm, vm.propertyNames->unscopablesSymbol, unscopables, PropertyAttribute::DontEnum | PropertyAttribute::ReadOnly);
 }

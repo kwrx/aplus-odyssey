@@ -27,6 +27,7 @@
 #include "MapConstructor.h"
 
 #include "IteratorOperations.h"
+#include "JSCBuiltins.h"
 #include "JSCInlines.h"
 #include "JSMapInlines.h"
 #include "MapPrototype.h"
@@ -40,6 +41,8 @@ void MapConstructor::finishCreation(VM& vm, MapPrototype* mapPrototype, GetterSe
     Base::finishCreation(vm, 0, "Map"_s, PropertyAdditionMode::WithoutStructureTransition);
     putDirectWithoutTransition(vm, vm.propertyNames->prototype, mapPrototype, PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly);
     putDirectNonIndexAccessorWithoutTransition(vm, vm.propertyNames->speciesSymbol, speciesSymbol, PropertyAttribute::Accessor | PropertyAttribute::ReadOnly | PropertyAttribute::DontEnum);
+    JSGlobalObject* globalObject = this->globalObject();
+    JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION("groupBy", objectConstructorMapGroupByCodeGenerator, static_cast<unsigned>(PropertyAttribute::DontEnum));
 }
 
 static JSC_DECLARE_HOST_FUNCTION(callMap);

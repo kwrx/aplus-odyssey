@@ -743,3 +743,110 @@ function at(index)
 
     return (k >= 0 && k < length) ? array[k] : @undefined;
 }
+
+function toReversed()
+{
+    "use strict";
+
+    var array = @toObject(this, "Array.prototype.toReversed requires that |this| not be null or undefined");
+    var length = @toLength(array.length);
+    var result = @newArrayWithSize(length);
+    for (var k = 0; k < length; ++k)
+        @putByValDirect(result, k, array[length - k - 1]);
+    return result;
+}
+
+function toSorted(comparator)
+{
+    "use strict";
+
+    var isStringSort = false;
+    if (comparator === @undefined)
+        isStringSort = true;
+    else if (!@isCallable(comparator))
+        @throwTypeError("Array.prototype.toSorted requires the comparator argument to be a function or undefined");
+
+    var array = @toObject(this, "Array.prototype.toSorted requires that |this| not be null or undefined");
+    var length = @toLength(array.length);
+    var result = @newArrayWithSize(length);
+    for (var k = 0; k < length; ++k)
+        @putByValDirect(result, k, array[k]);
+
+    if (length < 2)
+        return result;
+
+    var compacted = [ ];
+    var sorted = null;
+    var undefinedCount = @sortCompact(result, length, compacted, isStringSort);
+
+    if (isStringSort) {
+        sorted = @newArrayWithSize(compacted.length);
+        @sortBucketSort(sorted, 0, compacted, 0);
+    } else
+        sorted = @sortMergeSort(compacted, comparator);
+
+    @sortCommit(result, length, sorted, undefinedCount);
+    return result;
+}
+
+function toSpliced(start, deleteCount /*, ...items */)
+{
+    "use strict";
+
+    var array = @toObject(this, "Array.prototype.toSpliced requires that |this| not be null or undefined");
+    var length = @toLength(array.length);
+
+    var relativeStart = @toIntegerOrInfinity(start);
+    var actualStart;
+    if (relativeStart < 0)
+        actualStart = relativeStart + length > 0 ? relativeStart + length : 0;
+    else
+        actualStart = relativeStart < length ? relativeStart : length;
+
+    var argumentCount = @argumentCount();
+    var insertCount = argumentCount > 2 ? argumentCount - 2 : 0;
+    var actualSkipCount;
+    if (argumentCount === 0)
+        actualSkipCount = 0;
+    else if (argumentCount === 1)
+        actualSkipCount = length - actualStart;
+    else {
+        var skip = @toIntegerOrInfinity(deleteCount);
+        if (skip < 0)
+            skip = 0;
+        actualSkipCount = skip < length - actualStart ? skip : length - actualStart;
+    }
+
+    var newLength = length + insertCount - actualSkipCount;
+    if (newLength > 9007199254740991)
+        @throwTypeError("Array.prototype.toSpliced result length exceeds 2^53 - 1");
+
+    var result = @newArrayWithSize(newLength);
+    var i = 0;
+    var r = actualStart + actualSkipCount;
+    for (; i < actualStart; ++i)
+        @putByValDirect(result, i, array[i]);
+    for (var j = 0; j < insertCount; ++j)
+        @putByValDirect(result, i++, arguments[j + 2]);
+    for (; i < newLength; ++i)
+        @putByValDirect(result, i, array[r++]);
+    return result;
+}
+
+@overriddenName="with"
+function withMethod(index, value)
+{
+    "use strict";
+
+    var array = @toObject(this, "Array.prototype.with requires that |this| not be null or undefined");
+    var length = @toLength(array.length);
+    var relativeIndex = @toIntegerOrInfinity(index);
+    var actualIndex = relativeIndex >= 0 ? relativeIndex : length + relativeIndex;
+    if (actualIndex >= length || actualIndex < 0)
+        @throwRangeError("Array index out of range");
+
+    var result = @newArrayWithSize(length);
+    for (var k = 0; k < length; ++k)
+        @putByValDirect(result, k, k === actualIndex ? value : array[k]);
+    return result;
+}

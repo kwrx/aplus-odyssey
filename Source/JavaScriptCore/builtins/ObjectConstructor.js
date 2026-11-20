@@ -41,3 +41,54 @@ function fromEntries(iterable)
 
     return object;
 }
+
+function groupBy(items, callback)
+{
+    "use strict";
+
+    if (@isUndefinedOrNull(items))
+        @throwTypeError("Object.groupBy requires that the first argument not be null or undefined");
+    if (!@isCallable(callback))
+        @throwTypeError("Object.groupBy requires that the second argument be a function");
+
+    var groups = @Object.@create(null);
+    var k = 0;
+    for (var value of items) {
+        var key = callback.@call(@undefined, value, k++);
+        if (typeof key !== "symbol")
+            key = @toString(key);
+        var list = groups[key];
+        if (list === @undefined) {
+            list = [];
+            @putByValDirect(groups, key, list);
+        }
+        @putByValDirect(list, list.length, value);
+    }
+    return groups;
+}
+
+@overriddenName="groupBy"
+function mapGroupBy(items, callback)
+{
+    "use strict";
+
+    if (@isUndefinedOrNull(items))
+        @throwTypeError("Map.groupBy requires that the first argument not be null or undefined");
+    if (!@isCallable(callback))
+        @throwTypeError("Map.groupBy requires that the second argument be a function");
+
+    var groups = new @Map;
+    var k = 0;
+    for (var value of items) {
+        var key = callback.@call(@undefined, value, k++);
+        if (key === 0)
+            key = 0;
+        var list = groups.@get(key);
+        if (list === @undefined) {
+            list = [];
+            groups.@set(key, list);
+        }
+        @putByValDirect(list, list.length, value);
+    }
+    return groups;
+}

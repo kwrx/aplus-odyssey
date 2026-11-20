@@ -317,3 +317,11 @@ function InternalPromise(executor)
 
     return promise;
 }
+
+function withResolvers()
+{
+    "use strict";
+
+    var promiseCapability = @newPromiseCapability(this);
+    return { promise: promiseCapability.@promise, resolve: promiseCapability.@resolve, reject: promiseCapability.@reject };
+}

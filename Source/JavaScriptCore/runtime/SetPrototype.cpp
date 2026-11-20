@@ -41,6 +41,13 @@ const ClassInfo SetPrototype::s_info = { "Set", &Base::s_info, &setPrototypeTabl
 /* Source for SetIteratorPrototype.lut.h
 @begin setPrototypeTable
   forEach   JSBuiltin  DontEnum|Function 0
+  union     JSBuiltin  DontEnum|Function 1
+  intersection  JSBuiltin  DontEnum|Function 1
+  difference  JSBuiltin  DontEnum|Function 1
+  symmetricDifference  JSBuiltin  DontEnum|Function 1
+  isSubsetOf  JSBuiltin  DontEnum|Function 1
+  isSupersetOf  JSBuiltin  DontEnum|Function 1
+  isDisjointFrom  JSBuiltin  DontEnum|Function 1
 @end
 */
 
