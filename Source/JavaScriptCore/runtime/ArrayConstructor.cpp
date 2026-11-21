@@ -40,6 +40,7 @@ const ClassInfo ArrayConstructor::s_info = { "Function", &InternalFunction::s_in
 @begin arrayConstructorTable
   of        JSBuiltin                   DontEnum|Function 0
   from      JSBuiltin                   DontEnum|Function 0
+  fromAsync JSBuiltin                   DontEnum|Function 1
 @end
 */
 

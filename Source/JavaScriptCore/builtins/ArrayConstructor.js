@@ -100,6 +100,83 @@ function from(items /*, mapFn, thisArg */)
     return result;
 }
 
+function fromAsync(asyncItems)
+{
+    "use strict";
+
+    var capability = @newPromiseCapability(@Promise);
+    @arrayFromAsync(this, asyncItems, @argument(1), @argument(2)).then(capability.@resolve, capability.@reject);
+    return capability.@promise;
+}
+
+@globalPrivate
+async function arrayFromAsync(constructor, asyncItems, mapFn, thisArg)
+{
+    "use strict";
+
+    var mapping = mapFn !== @undefined;
+    if (mapping && !@isCallable(mapFn))
+        @throwTypeError("Array.fromAsync requires that the second argument, when provided, be a function");
+
+    if (@isUndefinedOrNull(asyncItems))
+        @throwTypeError("Array.fromAsync requires an array-like object - not null or undefined");
+
+    var asyncMethod = asyncItems.@@asyncIterator;
+    var syncMethod = @undefined;
+    if (@isUndefinedOrNull(asyncMethod)) {
+        asyncMethod = @undefined;
+        syncMethod = asyncItems.@@iterator;
+        if (@isUndefinedOrNull(syncMethod))
+            syncMethod = @undefined;
+    }
+
+    if (asyncMethod !== @undefined || syncMethod !== @undefined) {
+        var result = constructor !== @Array && @isConstructor(constructor) ? new constructor() : [];
+
+        var wrapper = { };
+        if (asyncMethod !== @undefined) {
+            if (!@isCallable(asyncMethod))
+                @throwTypeError("Array.fromAsync requires that the property of the first argument, items[Symbol.asyncIterator], when exists, be a function");
+            var asyncIterator = asyncMethod.@call(asyncItems);
+            wrapper.@@asyncIterator = function() { return asyncIterator; };
+        } else {
+            if (!@isCallable(syncMethod))
+                @throwTypeError("Array.fromAsync requires that the property of the first argument, items[Symbol.iterator], when exists, be a function");
+            var syncIterator = syncMethod.@call(asyncItems);
+            wrapper.@@iterator = function() { return syncIterator; };
+        }
+
+        var k = 0;
+        for await (var value of wrapper) {
+            if (k >= @MAX_SAFE_INTEGER)
+                @throwTypeError("Length exceeded the maximum array length");
+            if (mapping)
+                value = await mapFn.@call(thisArg, value, k);
+            @putByValDirect(result, k, value);
+            k += 1;
+        }
+
+        result.length = k;
+        return result;
+    }
+
+    var arrayLike = @toObject(asyncItems, "Array.fromAsync requires an array-like object - not null or undefined");
+    var arrayLikeLength = @toLength(arrayLike.length);
+    var result = constructor !== @Array && @isConstructor(constructor) ? new constructor(arrayLikeLength) : @newArrayWithSize(arrayLikeLength);
+
+    var k = 0;
+    while (k < arrayLikeLength) {
+        var value = await arrayLike[k];
+        if (mapping)
+            value = await mapFn.@call(thisArg, value, k);
+        @putByValDirect(result, k, value);
+        k += 1;
+    }
+
+    result.length = arrayLikeLength;
+    return result;
+}
+
 function isArray(array)
 {
     "use strict";

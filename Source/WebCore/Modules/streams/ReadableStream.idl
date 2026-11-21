@@ -35,6 +35,8 @@
 ] interface ReadableStream {
     constructor(optional any underlyingSource, optional any options);
 
+    static ReadableStream from(any asyncIterable);
+
     [NotEnumerable] Promise<any> cancel(optional any reason);
     [NotEnumerable] Object getReader(optional any options);
     [NotEnumerable] Promise<any> pipeTo(any streams, optional any options);

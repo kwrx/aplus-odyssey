@@ -80,6 +80,61 @@ function initializeReadableStream(underlyingSource, strategy)
     return this;
 }
 
+function from(asyncIterable)
+{
+    "use strict";
+
+    if (@isUndefinedOrNull(asyncIterable))
+        @throwTypeError("ReadableStream.from requires an async iterable or an iterable");
+
+    let iterator;
+    const asyncMethod = asyncIterable.@@asyncIterator;
+    if (@isUndefinedOrNull(asyncMethod)) {
+        const syncMethod = asyncIterable.@@iterator;
+        if (!@isCallable(syncMethod))
+            @throwTypeError("ReadableStream.from requires an async iterable or an iterable");
+        const syncIterator = syncMethod.@call(asyncIterable);
+        if (!@isObject(syncIterator))
+            @throwTypeError("ReadableStream.from: the iterator method did not return an object");
+        iterator = @createAsyncFromSyncIterator(syncIterator, syncIterator.next);
+    } else {
+        if (!@isCallable(asyncMethod))
+            @throwTypeError("ReadableStream.from: Symbol.asyncIterator is not a function");
+        iterator = asyncMethod.@call(asyncIterable);
+        if (!@isObject(iterator))
+            @throwTypeError("ReadableStream.from: the async iterator method did not return an object");
+    }
+    const nextMethod = iterator.next;
+
+    const underlyingSource = { };
+    @putByIdDirectPrivate(underlyingSource, "pull", (controller) => {
+        return @Promise.@resolve(nextMethod.@call(iterator)).@then((result) => {
+            if (!@isObject(result))
+                @throwTypeError("ReadableStream.from: the iterator result is not an object");
+            if (!@readableStreamDefaultControllerCanCloseOrEnqueue(controller))
+                return;
+            if (result.done)
+                @readableStreamDefaultControllerClose(controller);
+            else
+                @readableStreamDefaultControllerEnqueue(controller, result.value);
+        });
+    });
+    @putByIdDirectPrivate(underlyingSource, "cancel", (reason) => {
+        const returnMethod = iterator.return;
+        if (@isUndefinedOrNull(returnMethod))
+            return @Promise.@resolve();
+        return @Promise.@resolve(returnMethod.@call(iterator, reason)).@then((result) => {
+            if (!@isObject(result))
+                @throwTypeError("ReadableStream.from: the iterator return result is not an object");
+        });
+    });
+
+    const strategy = { };
+    @putByIdDirectPrivate(strategy, "highWaterMark", 0);
+
+    return new @ReadableStream(underlyingSource, strategy);
+}
+
 function cancel(reason)
 {
     "use strict";
