@@ -245,6 +245,11 @@ namespace WebCore {
     macro(StylePropertyMapReadOnly) \
     macro(StylePropertyMap) \
     macro(SubtleCrypto) \
+    macro(CompressionStream) \
+    macro(CompressionStreamEncoder) \
+    macro(DecompressionStream) \
+    macro(DecompressionStreamDecoder) \
+    macro(LockManager) \
     macro(TextDecoderStream) \
     macro(TextDecoderStreamDecoder) \
     macro(TextEncoderStream) \
@@ -441,6 +446,15 @@ namespace WebCore {
     macro(textDecoderStreamTransform) \
     macro(textEncoderStreamEncoder) \
     macro(textEncoderStreamTransform) \
+    macro(compressionStreamEncoder) \
+    macro(compressionStreamTransform) \
+    macro(decompressionStreamDecoder) \
+    macro(decompressionStreamTransform) \
+    macro(isLockManager) \
+    macro(lockSnapshot) \
+    macro(newLockRequestId) \
+    macro(releaseLock) \
+    macro(requestLock) \
     macro(transformAlgorithm) \
     macro(underlyingByteSource) \
     macro(underlyingSink) \

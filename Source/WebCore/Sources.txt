@@ -30,6 +30,8 @@ Modules/async-clipboard/ClipboardItemBindingsDataSource.cpp
 Modules/async-clipboard/ClipboardItemPasteboardDataSource.cpp
 Modules/async-clipboard/NavigatorClipboard.cpp
 Modules/beacon/NavigatorBeacon.cpp
+Modules/compression/CompressionStreamEncoder.cpp
+Modules/locks/LockManager.cpp
 Modules/cache/CacheStorageConnection.cpp
 Modules/cache/DOMCache.cpp
 Modules/cache/DOMCacheEngine.cpp
@@ -2847,6 +2849,8 @@ JSColorGamut.cpp
 JSCommandLineAPIHost.cpp
 JSComment.cpp
 JSCompositeOperation.cpp
+JSCompressionStream.cpp
+JSCompressionStreamEncoder.cpp
 JSCompositeOperationOrAuto.cpp
 JSCompositionEvent.cpp
 JSComputedEffectTiming.cpp
@@ -2914,6 +2918,8 @@ JSDataTransferItem.cpp
 JSDataTransferItemList.cpp
 JSDatabase.cpp
 JSDatabaseCallback.cpp
+JSDecompressionStream.cpp
+JSDecompressionStreamDecoder.cpp
 JSDedicatedWorkerGlobalScope.cpp
 JSDelayNode.cpp
 JSDelayOptions.cpp
@@ -3135,6 +3141,7 @@ JSKeyframeAnimationOptions.cpp
 JSKeyframeEffect.cpp
 JSKeyframeEffectOptions.cpp
 JSLocation.cpp
+JSLockManager.cpp
 JSLongRange.cpp
 JSMathMLElement.cpp
 JSMathMLMathElement.cpp

@@ -28,6 +28,8 @@
     // Non-standard.
     // FIXME: Remove this. WebKit is the only engine that still has this.
     undefined getStorageUpdates();
+
+    [SecureContext, SameObject] readonly attribute LockManager locks;
 };
 
 Navigator includes NavigatorID;

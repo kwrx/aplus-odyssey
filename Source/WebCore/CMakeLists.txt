@@ -25,6 +25,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/Modules/async-clipboard"
     "${WEBCORE_DIR}/Modules/beacon"
     "${WEBCORE_DIR}/Modules/cache"
+    "${WEBCORE_DIR}/Modules/compression"
     "${WEBCORE_DIR}/Modules/contact-picker"
     "${WEBCORE_DIR}/Modules/credentialmanagement"
     "${WEBCORE_DIR}/Modules/encryptedmedia"
@@ -53,6 +54,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/Modules/plugins"
     "${WEBCORE_DIR}/Modules/remoteplayback"
     "${WEBCORE_DIR}/Modules/speech"
+    "${WEBCORE_DIR}/Modules/locks"
     "${WEBCORE_DIR}/Modules/streams"
     "${WEBCORE_DIR}/Modules/webaudio"
     "${WEBCORE_DIR}/Modules/webauthn"
@@ -229,6 +231,13 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/async-clipboard/Navigator+Clipboard.idl
 
     Modules/beacon/Navigator+Beacon.idl
+
+    Modules/compression/CompressionStream.idl
+    Modules/compression/CompressionStreamEncoder.idl
+    Modules/compression/DecompressionStream.idl
+    Modules/compression/DecompressionStreamDecoder.idl
+
+    Modules/locks/LockManager.idl
 
     Modules/cache/CacheQueryOptions.idl
     Modules/cache/DOMCache.idl
@@ -2049,6 +2058,9 @@ set(WebCore_BUILTINS_SOURCES
     ${WEBCORE_DIR}/Modules/streams/WritableStreamDefaultController.js
     ${WEBCORE_DIR}/Modules/streams/WritableStreamDefaultWriter.js
     ${WEBCORE_DIR}/Modules/streams/WritableStreamInternals.js
+    ${WEBCORE_DIR}/Modules/compression/CompressionStream.js
+    ${WEBCORE_DIR}/Modules/compression/DecompressionStream.js
+    ${WEBCORE_DIR}/Modules/locks/LockManager.js
     ${WEBCORE_DIR}/dom/TextDecoderStream.js
     ${WEBCORE_DIR}/dom/TextEncoderStream.js
     ${WEBCORE_DIR}/bindings/js/JSDOMBindingInternals.js

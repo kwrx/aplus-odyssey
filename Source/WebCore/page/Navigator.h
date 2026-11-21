@@ -32,6 +32,7 @@ class Blob;
 class DeferredPromise;
 class DOMMimeTypeArray;
 class DOMPluginArray;
+class LockManager;
 class ShareDataReader;
 
 class Navigator final : public NavigatorBase, public ScriptWrappable, public DOMWindowProperty, public Supplementable<Navigator> {
@@ -58,6 +59,8 @@ public:
 
     void getStorageUpdates();
 
+    LockManager& locks();
+
 #if ENABLE(IOS_TOUCH_EVENTS) && !PLATFORM(MACCATALYST)
     int maxTouchPoints() const { return 5; }
 #else
@@ -74,6 +77,7 @@ private:
     mutable bool m_hasPendingShare { false };
     mutable RefPtr<DOMPluginArray> m_plugins;
     mutable RefPtr<DOMMimeTypeArray> m_mimeTypes;
+    RefPtr<LockManager> m_locks;
     mutable String m_userAgent;
     mutable String m_platform;
 };

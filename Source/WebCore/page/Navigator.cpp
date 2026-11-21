@@ -36,6 +36,7 @@
 #include "Geolocation.h"
 #include "JSDOMPromiseDeferred.h"
 #include "LoaderStrategy.h"
+#include "LockManager.h"
 #include "Page.h"
 #include "PlatformStrategies.h"
 #include "PluginData.h"
@@ -332,6 +333,13 @@ bool Navigator::standalone() const
 
 void Navigator::getStorageUpdates()
 {
+}
+
+LockManager& Navigator::locks()
+{
+    if (!m_locks)
+        m_locks = LockManager::create(scriptExecutionContext());
+    return *m_locks;
 }
 
 } // namespace WebCore
