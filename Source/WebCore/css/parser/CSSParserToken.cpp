@@ -41,10 +41,39 @@
 namespace WebCore {
 
 template<typename CharacterType>
+static CSSUnitType sizedViewportUnit(const CharacterType* data, unsigned length)
+{
+    if ((length != 3 && length != 5) || toASCIILower(data[1]) != 'v')
+        return CSSUnitType::CSS_UNKNOWN;
+    unsigned base;
+    if (length == 3 && toASCIILower(data[2]) == 'w')
+        base = 0;
+    else if (length == 3 && toASCIILower(data[2]) == 'h')
+        base = 1;
+    else if (length == 5 && toASCIILower(data[2]) == 'm' && toASCIILower(data[3]) == 'i' && toASCIILower(data[4]) == 'n')
+        base = 2;
+    else if (length == 5 && toASCIILower(data[2]) == 'm' && toASCIILower(data[3]) == 'a' && toASCIILower(data[4]) == 'x')
+        base = 3;
+    else
+        return CSSUnitType::CSS_UNKNOWN;
+    switch (toASCIILower(data[0])) {
+    case 's':
+        return static_cast<CSSUnitType>(static_cast<unsigned>(CSSUnitType::CSS_SVW) + base);
+    case 'l':
+        return static_cast<CSSUnitType>(static_cast<unsigned>(CSSUnitType::CSS_LVW) + base);
+    case 'd':
+        return static_cast<CSSUnitType>(static_cast<unsigned>(CSSUnitType::CSS_DVW) + base);
+    }
+    return CSSUnitType::CSS_UNKNOWN;
+}
+
+template<typename CharacterType>
 CSSUnitType cssPrimitiveValueUnitFromTrie(const CharacterType* data, unsigned length)
 {
     ASSERT(data);
     ASSERT(length);
+    if (auto unit = sizedViewportUnit(data, length); unit != CSSUnitType::CSS_UNKNOWN)
+        return unit;
     switch (length) {
     case 1:
         switch (toASCIILower(data[0])) {

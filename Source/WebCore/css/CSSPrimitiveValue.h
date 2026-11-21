@@ -313,7 +313,19 @@ constexpr bool CSSPrimitiveValue::isViewportPercentageLength(CSSUnitType type)
     return type == CSSUnitType::CSS_VW
         || type == CSSUnitType::CSS_VH
         || type == CSSUnitType::CSS_VMIN
-        || type == CSSUnitType::CSS_VMAX;
+        || type == CSSUnitType::CSS_VMAX
+        || type == CSSUnitType::CSS_SVW
+        || type == CSSUnitType::CSS_SVH
+        || type == CSSUnitType::CSS_SVMIN
+        || type == CSSUnitType::CSS_SVMAX
+        || type == CSSUnitType::CSS_LVW
+        || type == CSSUnitType::CSS_LVH
+        || type == CSSUnitType::CSS_LVMIN
+        || type == CSSUnitType::CSS_LVMAX
+        || type == CSSUnitType::CSS_DVW
+        || type == CSSUnitType::CSS_DVH
+        || type == CSSUnitType::CSS_DVMIN
+        || type == CSSUnitType::CSS_DVMAX;
 }
 
 template<typename T> inline Ref<CSSPrimitiveValue> CSSPrimitiveValue::create(T&& value)

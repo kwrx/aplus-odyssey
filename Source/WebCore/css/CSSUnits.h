@@ -66,6 +66,18 @@ enum class CSSUnitType : uint8_t {
     CSS_Q,
     CSS_LHS,
     CSS_RLHS,
+    CSS_SVW,
+    CSS_SVH,
+    CSS_SVMIN,
+    CSS_SVMAX,
+    CSS_LVW,
+    CSS_LVH,
+    CSS_LVMIN,
+    CSS_LVMAX,
+    CSS_DVW,
+    CSS_DVH,
+    CSS_DVMIN,
+    CSS_DVMAX,
 
     CustomIdent,
 
