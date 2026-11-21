@@ -93,8 +93,8 @@ list(APPEND WebCore_SOURCES
     platform/aplus/PlatformMouseEventAplus.cpp
     platform/aplus/PlatformScreenAplus.cpp
     platform/aplus/PlatformWheelEventAplus.cpp
+    platform/aplus/ScrollbarThemeAplus.cpp
     platform/mui/PopupMenuMorphOS.cpp
-    platform/mui/ScrollbarThemeMorphOS.cpp
     platform/mui/SearchPopupMenuMorphOS.cpp
     platform/mui/SSLKeyGeneratorMorphOS.cpp
     platform/aplus/WidgetAplus.cpp

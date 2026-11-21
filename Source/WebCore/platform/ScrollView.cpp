@@ -81,7 +81,7 @@ bool ScrollView::setHasScrollbarInternal(RefPtr<Scrollbar>& scrollbar, Scrollbar
 {
     ASSERT(!hasBar || !avoidScrollbarCreation());
 
-#if PLATFORM(MUI)
+#if PLATFORM(MUI) && !OS(APLUS)
     if(!parent()) {
         hasBar = false;
     }
@@ -712,7 +712,7 @@ void ScrollView::updateScrollbars(const ScrollPosition& desiredPosition)
             }
         }
 
-            #if PLATFORM(MUI)
+            #if PLATFORM(MUI) && !OS(APLUS)
             if(!parent()) {
                 sendContentResizedNotification = false;
             }
