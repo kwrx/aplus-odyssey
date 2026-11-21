@@ -388,6 +388,7 @@ bool CSSParserImpl::consumeRuleList(CSSParserTokenRange range, RuleListType rule
             rule = consumeQualifiedRule(range, allowedRules);
             break;
         }
+        auto nestedRules = std::exchange(m_nestedRules, { });
         if (!seenRule) {
             seenRule = true;
             firstRuleValid = rule;
@@ -395,6 +396,8 @@ bool CSSParserImpl::consumeRuleList(CSSParserTokenRange range, RuleListType rule
         if (rule) {
             allowedRules = computeNewAllowedRules(allowedRules, rule.get());
             callback(rule);
+            for (auto& nestedRule : nestedRules)
+                callback(nestedRule);
         }
     }
 
@@ -813,6 +816,156 @@ static void observeSelectors(CSSParserObserverWrapper& wrapper, CSSParserTokenRa
     wrapper.observer().endRuleHeader(wrapper.endOffset(originalRange));
 }
 
+static bool blockHasNestedRules(CSSParserTokenRange block)
+{
+    while (!block.atEnd()) {
+        if (block.peek().type() == LeftBraceToken)
+            return true;
+        block.consumeComponentValue();
+    }
+    return false;
+}
+
+std::optional<CSSSelectorList> CSSParserImpl::resolveNestedSelector(const CSSSelectorList& parent, CSSParserTokenRange prelude)
+{
+    String parentText = parent.selectorsText();
+    bool singleParent = parent.listSize() == 1;
+    StringBuilder result;
+    prelude.consumeWhitespace();
+    while (!prelude.atEnd()) {
+        const CSSParserToken* pieceStart = &prelude.peek();
+        while (!prelude.atEnd() && prelude.peek().type() != CommaToken)
+            prelude.consumeComponentValue();
+        auto piece = prelude.makeSubRange(pieceStart, &prelude.peek());
+        if (!prelude.atEnd())
+            prelude.consume();
+        piece.consumeWhitespace();
+        if (piece.atEnd())
+            return std::nullopt;
+
+        StringBuilder text;
+        bool hasNesting = false;
+        bool atStart = true;
+        while (!piece.atEnd()) {
+            auto& token = piece.consume();
+            const CSSParserToken* next = piece.atEnd() ? nullptr : &piece.peek();
+            if (token.type() == DelimiterToken && token.delimiter() == '&') {
+                hasNesting = true;
+                if (singleParent && atStart && (!next || (next->type() != IdentToken && next->type() != FunctionToken)))
+                    text.append(parentText);
+                else
+                    text.append(":is(", parentText, ')');
+            } else
+                token.serialize(text, next);
+            atStart = false;
+        }
+
+        if (!result.isEmpty())
+            result.append(", ");
+        if (!hasNesting) {
+            if (singleParent)
+                result.append(parentText, ' ');
+            else
+                result.append(":is(", parentText, ") ");
+        }
+        result.append(text.toString());
+    }
+    if (result.isEmpty())
+        return std::nullopt;
+
+    String selectorText = result.toString();
+    CSSTokenizer tokenizer(selectorText);
+    return parseCSSSelector(tokenizer.tokenRange(), m_context, m_styleSheet.get());
+}
+
+Ref<StyleRule> CSSParserImpl::consumeNestingBlock(const CSSSelectorList& selectors, CSSParserTokenRange block, Vector<RefPtr<StyleRuleBase>>& descendants)
+{
+    struct NestedItem {
+        CSSParserTokenRange prelude;
+        CSSParserTokenRange block;
+        CSSAtRuleID atRule;
+    };
+    Vector<CSSParserTokenRange> declarations;
+    Vector<NestedItem> nested;
+
+    while (!block.atEnd()) {
+        auto& token = block.peek();
+        switch (token.type()) {
+        case WhitespaceToken:
+        case SemicolonToken:
+            block.consume();
+            break;
+        case AtKeywordToken: {
+            auto atRule = cssAtRuleID(block.consumeIncludingWhitespace().value());
+            const CSSParserToken* preludeStart = &block.peek();
+            while (!block.atEnd() && block.peek().type() != LeftBraceToken && block.peek().type() != SemicolonToken)
+                block.consumeComponentValue();
+            auto prelude = block.makeSubRange(preludeStart, &block.peek());
+            if (block.atEnd())
+                break;
+            if (block.peek().type() == SemicolonToken) {
+                block.consume();
+                break;
+            }
+            auto innerBlock = block.consumeBlock();
+            if (atRule == CSSAtRuleMedia || atRule == CSSAtRuleSupports)
+                nested.append({ prelude, innerBlock, atRule });
+            break;
+        }
+        default: {
+            const CSSParserToken* start = &token;
+            bool isCustomProperty = token.type() == IdentToken && token.value().startsWith("--");
+            while (!block.atEnd() && block.peek().type() != SemicolonToken && (isCustomProperty || block.peek().type() != LeftBraceToken))
+                block.consumeComponentValue();
+            auto range = block.makeSubRange(start, &block.peek());
+            if (!block.atEnd() && block.peek().type() == LeftBraceToken) {
+                auto innerBlock = block.consumeBlock();
+                nested.append({ range, innerBlock, CSSAtRuleInvalid });
+                break;
+            }
+            if (start->type() == IdentToken)
+                declarations.append(range);
+            break;
+        }
+        }
+    }
+
+    for (auto& range : declarations)
+        consumeDeclaration(range, StyleRuleType::Style);
+    auto rule = StyleRule::create(createStyleProperties(m_parsedProperties, m_context.mode), m_context.hasDocumentSecurityOrigin, CSSSelectorList(selectors));
+
+    for (auto& item : nested) {
+        if (item.atRule == CSSAtRuleInvalid) {
+            auto childSelectors = resolveNestedSelector(selectors, item.prelude);
+            if (!childSelectors)
+                continue;
+            Vector<RefPtr<StyleRuleBase>> childDescendants;
+            auto child = consumeNestingBlock(*childSelectors, item.block, childDescendants);
+            descendants.append(WTFMove(child));
+            descendants.appendVector(WTFMove(childDescendants));
+            continue;
+        }
+
+        Vector<RefPtr<StyleRuleBase>> groupRules;
+        auto bare = consumeNestingBlock(selectors, item.block, groupRules);
+        if (!bare->properties().isEmpty())
+            groupRules.insert(0, WTFMove(bare));
+        if (groupRules.isEmpty())
+            continue;
+
+        if (item.atRule == CSSAtRuleMedia) {
+            descendants.append(StyleRuleMedia::create(MediaQueryParser::parseMediaQuerySet(item.prelude, MediaQueryParserContext(m_context)).releaseNonNull(), WTFMove(groupRules)));
+            continue;
+        }
+        auto supported = CSSSupportsParser::supportsCondition(item.prelude, *this, CSSSupportsParser::ForAtRule);
+        if (supported == CSSSupportsParser::Invalid)
+            continue;
+        descendants.append(StyleRuleSupports::create(item.prelude.serialize().stripWhiteSpace(), supported, WTFMove(groupRules)));
+    }
+
+    return rule;
+}
+
 RefPtr<StyleRule> CSSParserImpl::consumeStyleRule(CSSParserTokenRange prelude, CSSParserTokenRange block)
 {
     auto selectorList = parseCSSSelector(prelude, m_context, m_styleSheet.get());
@@ -821,6 +974,12 @@ RefPtr<StyleRule> CSSParserImpl::consumeStyleRule(CSSParserTokenRange prelude, C
 
     if (m_observerWrapper)
         observeSelectors(*m_observerWrapper, prelude);
+    else if (blockHasNestedRules(block)) {
+        Vector<RefPtr<StyleRuleBase>> descendants;
+        auto rule = consumeNestingBlock(*selectorList, block, descendants);
+        m_nestedRules = WTFMove(descendants);
+        return rule;
+    }
     
     if (m_deferredParser) {
         // If a rule is empty (i.e., only whitespace), don't bother using

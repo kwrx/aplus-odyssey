@@ -143,6 +143,8 @@ private:
 
     RefPtr<StyleRuleKeyframe> consumeKeyframeStyleRule(CSSParserTokenRange prelude, CSSParserTokenRange block);
     RefPtr<StyleRule> consumeStyleRule(CSSParserTokenRange prelude, CSSParserTokenRange block);
+    Ref<StyleRule> consumeNestingBlock(const CSSSelectorList&, CSSParserTokenRange block, Vector<RefPtr<StyleRuleBase>>& descendants);
+    std::optional<CSSSelectorList> resolveNestedSelector(const CSSSelectorList& parent, CSSParserTokenRange prelude);
 
     void consumeDeclarationList(CSSParserTokenRange, StyleRuleType);
     void consumeDeclaration(CSSParserTokenRange, StyleRuleType);
@@ -158,6 +160,7 @@ private:
     // FIXME: Can we build StylePropertySets directly?
     // FIXME: Investigate using a smaller inline buffer
     ParsedPropertyVector m_parsedProperties;
+    Vector<RefPtr<StyleRuleBase>> m_nestedRules;
     const CSSParserContext& m_context;
 
     RefPtr<StyleSheetContents> m_styleSheet;
