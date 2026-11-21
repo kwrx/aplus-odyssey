@@ -2780,6 +2780,31 @@ void EventHandler::recordWheelEventForDeltaFilter(const PlatformWheelEvent& even
         page->wheelEventDeltaFilter()->updateFromDelta(FloatSize(event.deltaX(), event.deltaY()));
 }
 
+static bool overscrollBehaviorBlocksPropagation(const RenderStyle& style, const FloatSize& delta)
+{
+    bool blocksX = style.overscrollBehaviorX() != OverscrollBehavior::Auto;
+    bool blocksY = style.overscrollBehaviorY() != OverscrollBehavior::Auto;
+
+    if (!delta.width() && !delta.height())
+        return false;
+
+    return (blocksX && blocksY) || (blocksX && !delta.height()) || (blocksY && !delta.width());
+}
+
+static bool viewportBlocksScrollPropagation(Frame& frame, const FloatSize& delta)
+{
+    if (frame.isMainFrame())
+        return false;
+
+    auto* document = frame.document();
+    auto* root = document ? document->documentElement() : nullptr;
+    auto* renderer = root ? root->renderer() : nullptr;
+    if (!renderer)
+        return false;
+
+    return overscrollBehaviorBlocksPropagation(renderer->style(), delta);
+}
+
 bool EventHandler::processWheelEventForScrolling(const PlatformWheelEvent& event, const WeakPtr<ScrollableArea>&, OptionSet<EventHandling> eventHandling)
 {
     Ref<Frame> protectedFrame(m_frame);
@@ -2990,6 +3015,8 @@ bool EventHandler::handleWheelEventInternal(const PlatformWheelEvent& event, Opt
         // FIXME: processWheelEventForScrolling() is only called for FrameView scrolling, not overflow scrolling, which is confusing.
         handledEvent = processWheelEventForScrolling(event, scrollableArea, handling);
         processWheelEventForScrollSnap(event, scrollableArea);
+        if (!handledEvent && viewportBlocksScrollPropagation(m_frame, FloatSize(event.deltaX(), event.deltaY())))
+            handledEvent = true;
     }
 
     return handledEvent;
@@ -3053,6 +3080,9 @@ bool EventHandler::handleWheelEventInAppropriateEnclosingBox(Node* startNode, co
                 scrollingWasHandled = didScrollInScrollableArea(*boxScrollableArea, wheelEvent);
 
             if (scrollingWasHandled)
+                return true;
+
+            if (currentEnclosingBox->hasNonVisibleOverflow() && overscrollBehaviorBlocksPropagation(currentEnclosingBox->style(), filteredPlatformDelta))
                 return true;
         }
 

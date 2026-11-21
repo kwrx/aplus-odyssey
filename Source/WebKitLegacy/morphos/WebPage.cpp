@@ -1196,6 +1196,7 @@ WebPage::WebPage(WebCore::PageIdentifier pageID, WebPageCreationParameters&& par
 	settings.setTextAreasAreResizable(true);
 	settings.setIntersectionObserverEnabled(true);
 	settings.setDataTransferItemsEnabled(true);
+	settings.setOverscrollBehaviorEnabled(true);
 
 #if 1
 	settings.setForceCompositingMode(false);
