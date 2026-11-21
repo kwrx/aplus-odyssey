@@ -592,7 +592,9 @@ getSysTime(&t1);
 				cairo_translate(cr, (int)rect.x(), (int)rect.y());
 				cairo_rectangle(cr, 0, 0, (int)rect.width(), (int)rect.height());
 				// optimization: remove rounded-edge clip, saves ~3500 us, as blit is done to rectangle, not polygon
+#if !OS(APLUS)
 				cairo_reset_clip(cr);
+#endif
 				cairo_set_antialias(cr, CAIRO_ANTIALIAS_NONE);
 				cairo_set_source_surface(cr, surface, 0, 0);
 				cairo_fill(cr);
