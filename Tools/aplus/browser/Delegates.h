@@ -23,11 +23,16 @@
 
 #pragma once
 
+#include <string>
+
 class WebView;
 
 namespace Delegates {
 
 void attach(WebView*);
 void registerObservers();
+std::string downloadPath(const std::string& filename);
+void download(const std::string& url);
+std::string formatSize(long long bytes);
 
 }

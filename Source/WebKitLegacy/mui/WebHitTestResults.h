@@ -80,6 +80,8 @@ public:
     //Image* image();
 //    BalRectangle imageRect();
     const char* imageURL();
+    const char* mediaURL();
+    bool mediaIsVideo();
     bool isSelected();
     const char* spellingToolTip();
     const char* title();

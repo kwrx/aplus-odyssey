@@ -248,10 +248,27 @@ bool MIMETypeRegistry::isApplicationPluginMIMEType(const String&)
     return false;
 }
 
+#if OS(APLUS)
+String MIMETypeRegistry::preferredExtensionForMIMEType(const String& type)
+{
+    String s = type.convertToLowercaseWithoutLocale();
+
+    if (s == imageJpeg)
+        return "jpg"_s;
+    if (s == "audio/mpeg" || s == "audio/mp3")
+        return "mp3"_s;
+    if (s == "video/mpeg")
+        return "mpeg"_s;
+
+    Vector<String> extensions = extensionsForMIMEType(s);
+    return extensions.isEmpty() ? String() : extensions[0];
+}
+#else
 String MIMETypeRegistry::preferredExtensionForMIMEType(const String &)
 {
     return String();
 }
+#endif
 
 
 }

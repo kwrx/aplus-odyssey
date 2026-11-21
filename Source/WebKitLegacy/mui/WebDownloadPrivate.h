@@ -78,6 +78,7 @@ public:
     WTF::String destinationPath;
     WTF::String command;
     WTF::String mimetype;
+    WTF::String suggestedFilename;
     bool allowOverwrite;
     bool allowResume;
     bool quiet;

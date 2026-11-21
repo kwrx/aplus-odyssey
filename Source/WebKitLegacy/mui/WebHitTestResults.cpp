@@ -35,6 +35,9 @@
 #include <WebCore/Document.h>
 #include <WebCore/Frame.h>
 #include <WebCore/HitTestResult.h>
+#include <WebCore/HTMLMediaElement.h>
+#include <WebCore/HTMLVideoElement.h>
+#include <WebCore/ShadowRoot.h>
 #include <WebCore/FrameLoader.h>
 #include <WebCore/Image.h>
 
@@ -87,6 +90,37 @@ const char* WebHitTestResults::imageAltString()
 const char* WebHitTestResults::imageURL()
 {
     return strdup(m_result->absoluteImageURL().string().utf8().data());
+}
+
+static HTMLMediaElement* hitMediaElement(const HitTestResult& result)
+{
+#if ENABLE(VIDEO)
+    for (Node* node = result.innerNonSharedNode(); node; node = node->parentOrShadowHostNode()) {
+        if (is<HTMLMediaElement>(*node))
+            return downcast<HTMLMediaElement>(node);
+    }
+#else
+    UNUSED_PARAM(result);
+#endif
+    return nullptr;
+}
+
+const char* WebHitTestResults::mediaURL()
+{
+#if ENABLE(VIDEO)
+    if (auto* media = hitMediaElement(*m_result))
+        return strdup(media->currentSrc().string().utf8().data());
+#endif
+    return strdup("");
+}
+
+bool WebHitTestResults::mediaIsVideo()
+{
+#if ENABLE(VIDEO)
+    return is<HTMLVideoElement>(hitMediaElement(*m_result));
+#else
+    return false;
+#endif
 }
 
 bool WebHitTestResults::isSelected()

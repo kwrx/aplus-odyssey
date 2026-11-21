@@ -91,7 +91,9 @@ static std::string dialogTitle(WebFrame* frame)
     return host.empty() ? std::string("This page says") : host + " says";
 }
 
-static std::string formatSize(long long bytes)
+namespace Delegates {
+
+std::string formatSize(long long bytes)
 {
     char buffer[32];
 
@@ -107,6 +109,10 @@ static std::string formatSize(long long bytes)
 
     return buffer;
 }
+
+}
+
+using Delegates::formatSize;
 
 class FrameLoadDelegate final : public WebFrameLoadDelegate {
 public:
@@ -169,7 +175,7 @@ private:
             return;
         }
 
-        bool cancelled = !error || error->isPolicyChangeError() || error->code() == errorCancelled;
+        bool cancelled = !error || error->isPolicyChangeError() || error->code() == errorCancelled || error->code() == WebKitErrorPlugInWillHandleLoad;
         const char* url = error ? error->failingURL() : nullptr;
         const char* description = error ? error->localizedDescription() : nullptr;
 
@@ -243,18 +249,7 @@ public:
 
     void decideDestinationWithSuggestedFilename(WebDownload* download, const char* filename) override
     {
-        std::string dir = App::downloadsDirectory();
-        std::string name = filename && filename[0] ? filename : "download";
-        std::replace(name.begin(), name.end(), '/', '_');
-
-        std::string path = dir + "/" + name;
-        size_t dot = name.rfind('.');
-        std::string stem = dot == std::string::npos || dot == 0 ? name : name.substr(0, dot);
-        std::string ext = dot == std::string::npos || dot == 0 ? std::string() : name.substr(dot);
-
-        for (int i = 1; access(path.c_str(), F_OK) == 0; i++) {
-            path = dir + "/" + stem + " (" + std::to_string(i) + ")" + ext;
-        }
+        std::string path = Delegates::downloadPath(filename && filename[0] ? filename : "download");
 
         Progress& p = m_downloads[download];
         p.name = path.substr(path.rfind('/') + 1);
@@ -361,14 +356,42 @@ public:
 
 namespace Delegates {
 
+static SharedPtr<DownloadDelegate>& downloads()
+{
+    static SharedPtr<DownloadDelegate> delegate = DownloadDelegate::createInstance();
+    return delegate;
+}
+
 void attach(WebView* webView)
 {
-    static SharedPtr<DownloadDelegate> downloads = DownloadDelegate::createInstance();
-
     webView->setWebFrameLoadDelegate(FrameLoadDelegate::createInstance());
     webView->setJSActionDelegate(JSDelegate::createInstance());
     webView->setWebNotificationDelegate(NotificationDelegate::createInstance());
-    webView->setDownloadDelegate(TransferSharedPtr<WebDownloadDelegate>(downloads));
+    webView->setDownloadDelegate(TransferSharedPtr<WebDownloadDelegate>(downloads()));
+}
+
+std::string downloadPath(const std::string& filename)
+{
+    std::string dir = App::downloadsDirectory();
+    std::string name = filename.empty() ? std::string("download") : filename;
+    std::replace(name.begin(), name.end(), '/', '_');
+
+    std::string path = dir + "/" + name;
+    size_t dot = name.rfind('.');
+    std::string stem = dot == std::string::npos || dot == 0 ? name : name.substr(0, dot);
+    std::string ext = dot == std::string::npos || dot == 0 ? std::string() : name.substr(dot);
+
+    for (int i = 1; access(path.c_str(), F_OK) == 0; i++) {
+        path = dir + "/" + stem + " (" + std::to_string(i) + ")" + ext;
+    }
+
+    return path;
+}
+
+void download(const std::string& url)
+{
+    WebDownload* download = WebDownload::createInstance(URL({ }, String::fromUTF8(url.c_str())), TransferSharedPtr<WebDownloadDelegate>(downloads()));
+    download->start();
 }
 
 void registerObservers()

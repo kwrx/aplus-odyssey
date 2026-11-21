@@ -26,18 +26,26 @@
 #include "BrowserWindow.h"
 
 #include "App.h"
+#include "Delegates.h"
+#include "MIMETypeRegistry.h"
 #include "PopupMenuMorphOS.h"
+#include "SharedBuffer.h"
 #include "Tab.h"
+#include "WebDataSource.h"
 #include "WebFrame.h"
 #include "WebHitTestResults.h"
+#include "WebURLResponse.h"
 #include "WebView.h"
 
+#include <wtf/URL.h>
 #include <wtf/text/CString.h>
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <unistd.h>
 
 static constexpr uint16_t keyEscape = 1;
 static constexpr uint16_t key1 = 2;
@@ -47,6 +55,7 @@ static constexpr uint16_t keyW = 17;
 static constexpr uint16_t keyR = 19;
 static constexpr uint16_t keyT = 20;
 static constexpr uint16_t keyEnter = 28;
+static constexpr uint16_t keyS = 31;
 static constexpr uint16_t keyD = 32;
 static constexpr uint16_t keyF = 33;
 static constexpr uint16_t keyG = 34;
@@ -81,8 +90,13 @@ enum : uint32_t {
     MenuOpenLinkTab = 10,
     MenuOpenLinkWindow,
     MenuCopyLink,
+    MenuSaveLink,
     MenuOpenImageTab = 20,
     MenuCopyImage,
+    MenuSaveImage,
+    MenuOpenMediaTab = 25,
+    MenuCopyMedia,
+    MenuSaveMedia,
     MenuCopy = 30,
     MenuSearchSelection,
     MenuCut = 40,
@@ -91,6 +105,7 @@ enum : uint32_t {
     MenuBack = 50,
     MenuForward,
     MenuReload,
+    MenuSavePage,
     MenuTabNew = 60,
     MenuTabReload,
     MenuTabDuplicate,
@@ -1527,6 +1542,9 @@ bool BrowserWindow::handleShortcut(uint16_t vkey, uint8_t mods)
                 tab->reload();
             }
             return true;
+        case keyS:
+            saveDocument(tab);
+            return true;
         case keyTab:
         case keyPageUp:
         case keyPageDown:
@@ -1794,6 +1812,152 @@ void BrowserWindow::showTabMenu(int index, int x, int y)
     }
 }
 
+static bool startsWith(const std::string& text, const char* prefix)
+{
+    return text.compare(0, strlen(prefix), prefix) == 0;
+}
+
+static bool isSavable(const std::string& url)
+{
+    return startsWith(url, "http://") || startsWith(url, "https://") || startsWith(url, "file://") || startsWith(url, "ftp://");
+}
+
+static std::string documentMIMEType(Tab* tab)
+{
+    WebDataSource* source = tab->webView()->mainFrame()->dataSource();
+
+    if (!source) {
+        return std::string();
+    }
+
+    WebURLResponse* response = source->response();
+    std::string mime = takeString(response->MIMEType());
+    delete response;
+    return mime;
+}
+
+static std::string saveLabel(Tab* tab)
+{
+    std::string mime = documentMIMEType(tab);
+
+    if (startsWith(mime, "image/")) {
+        return "Save image";
+    }
+    if (startsWith(mime, "video/")) {
+        return "Save video";
+    }
+    if (startsWith(mime, "audio/")) {
+        return "Save audio";
+    }
+    return "Save page";
+}
+
+static std::string percentDecode(const std::string& text)
+{
+    std::string out;
+
+    for (size_t i = 0; i < text.size(); i++) {
+        if (text[i] == '%' && i + 2 < text.size() && isxdigit((unsigned char)text[i + 1]) && isxdigit((unsigned char)text[i + 2])) {
+            out += (char)strtol(text.substr(i + 1, 2).c_str(), nullptr, 16);
+            i += 2;
+        } else {
+            out += text[i];
+        }
+    }
+
+    return out;
+}
+
+static std::string saveFileName(const std::string& address, const std::string& suggested, const std::string& mime, const std::string& title)
+{
+    URL url({ }, String::fromUTF8(address.c_str()));
+    std::string name = suggested;
+
+    if (name.empty()) {
+        name = percentDecode(url.lastPathComponent().toString().utf8().data());
+    }
+    if (name.empty()) {
+        name = title.empty() ? std::string(url.host().toString().utf8().data()) : title;
+    }
+
+    for (char& c : name) {
+        if (c == '/' || c == '\\' || c == ':' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|' || (unsigned char)c < 0x20) {
+            c = '_';
+        }
+    }
+
+    if (name.size() > 120) {
+        name.resize(120);
+    }
+
+    bool html = mime == "text/html" || mime == "application/xhtml+xml";
+    std::string lower = name;
+    std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+
+    if (html) {
+        if (!(lower.size() > 5 && lower.compare(lower.size() - 5, 5, ".html") == 0) && !(lower.size() > 4 && lower.compare(lower.size() - 4, 4, ".htm") == 0) && !(lower.size() > 6 && lower.compare(lower.size() - 6, 6, ".xhtml") == 0)) {
+            name += mime == "text/html" ? ".html" : ".xhtml";
+        }
+    } else if (name.find('.') == std::string::npos) {
+        String ext = WebCore::MIMETypeRegistry::preferredExtensionForMIMEType(String::fromUTF8(mime.c_str()));
+        if (!ext.isEmpty()) {
+            name += "." + std::string(ext.utf8().data());
+        }
+    }
+
+    return name.empty() ? std::string("download") : name;
+}
+
+void BrowserWindow::saveDocument(Tab* tab)
+{
+    if (!tab || !isSavable(tab->url())) {
+        return;
+    }
+
+    WebDataSource* source = tab->webView()->mainFrame()->dataSource();
+
+    if (!source) {
+        Delegates::download(tab->url());
+        return;
+    }
+
+    WebURLResponse* response = source->response();
+    std::string mime = takeString(response->MIMEType());
+    std::string suggested = takeString(response->suggestedFilename());
+    std::string address = takeString(response->_URL());
+    delete response;
+
+    if (address.empty()) {
+        address = tab->url();
+    }
+
+    RefPtr<WebCore::SharedBuffer> data = source->data();
+    bool media = startsWith(mime, "video/") || startsWith(mime, "audio/");
+
+    if (media || source->isLoading() || !data || !data->size()) {
+        Delegates::download(address);
+        return;
+    }
+
+    std::string path = Delegates::downloadPath(saveFileName(address, suggested, mime, tab->title()));
+    std::string name = path.substr(path.rfind('/') + 1);
+
+    FILE* file = fopen(path.c_str(), "wb");
+    bool ok = file && fwrite(data->data(), 1, data->size(), file) == data->size();
+
+    if (file && fclose(file) != 0) {
+        ok = false;
+    }
+
+    if (!ok) {
+        unlink(path.c_str());
+        flash("Couldn't save " + name, 6.0);
+        return;
+    }
+
+    flash("Saved " + name + " · " + Delegates::formatSize(data->size()), 6.0);
+}
+
 void BrowserWindow::showContextMenu(int x, int y)
 {
     Tab* tab = activeTab();
@@ -1807,11 +1971,15 @@ void BrowserWindow::showContextMenu(int x, int y)
 
     m_menuLink.clear();
     m_menuImage.clear();
+    m_menuMedia.clear();
+    m_menuMediaVideo = false;
     m_menuEditable = false;
 
     if (result) {
         m_menuLink = takeString(result->absoluteLinkURL());
         m_menuImage = takeString(result->imageURL());
+        m_menuMedia = takeString(result->mediaURL());
+        m_menuMediaVideo = result->mediaIsVideo();
         m_menuEditable = result->isContentEditable();
         delete result;
     }
@@ -1824,12 +1992,28 @@ void BrowserWindow::showContextMenu(int x, int y)
         addItem(items, MenuOpenLinkTab, "Open link in new tab");
         addItem(items, MenuOpenLinkWindow, "Open link in new window");
         addItem(items, MenuCopyLink, "Copy link address");
+        addItem(items, MenuSaveLink, "Save link", isSavable(m_menuLink) ? 0 : UI_MENU_DISABLED);
         addSeparator(items);
     }
 
     if (!m_menuImage.empty()) {
-        addItem(items, MenuOpenImageTab, "Open image in new tab");
+        if (m_menuImage != tab->url()) {
+            addItem(items, MenuOpenImageTab, "Open image in new tab");
+        }
         addItem(items, MenuCopyImage, "Copy image address");
+        addItem(items, MenuSaveImage, "Save image", isSavable(m_menuImage) ? 0 : UI_MENU_DISABLED);
+        addSeparator(items);
+    }
+
+    if (!m_menuMedia.empty()) {
+        const char* kind = m_menuMediaVideo ? "video" : "audio";
+        bool savable = isSavable(m_menuMedia);
+        bool here = m_menuMedia == tab->url();
+        if (!here) {
+            addItem(items, MenuOpenMediaTab, std::string("Open ") + kind + " in new tab", savable ? 0 : UI_MENU_DISABLED);
+        }
+        addItem(items, MenuCopyMedia, std::string("Copy ") + kind + " address", savable ? 0 : UI_MENU_DISABLED);
+        addItem(items, MenuSaveMedia, std::string("Save ") + kind, savable ? 0 : UI_MENU_DISABLED);
         addSeparator(items);
     }
 
@@ -1843,10 +2027,11 @@ void BrowserWindow::showContextMenu(int x, int y)
     } else if (!m_menuSelection.empty()) {
         addItem(items, MenuCopy, "Copy");
         addItem(items, MenuSearchSelection, "Search for “" + shorten(m_menuSelection, 22) + "”");
-    } else if (m_menuLink.empty() && m_menuImage.empty()) {
+    } else if (m_menuLink.empty() && m_menuImage.empty() && m_menuMedia.empty()) {
         addItem(items, MenuBack, "Back", tab->canGoBack() ? 0 : UI_MENU_DISABLED);
         addItem(items, MenuForward, "Forward", tab->canGoForward() ? 0 : UI_MENU_DISABLED);
         addItem(items, MenuReload, "Reload");
+        addItem(items, MenuSavePage, saveLabel(tab), isSavable(tab->url()) ? 0 : UI_MENU_DISABLED);
         addSeparator(items);
         addItem(items, MenuSelectAll, "Select all");
         addItem(items, MenuFind, "Find in page…");
@@ -1974,11 +2159,33 @@ void BrowserWindow::runMenuAction(MenuKind kind, uint32_t id)
     case MenuCopyLink:
         App::setClipboard(m_menuLink);
         break;
+    case MenuSaveLink:
+        Delegates::download(m_menuLink);
+        break;
     case MenuOpenImageTab:
         openTab(m_menuImage.c_str(), false);
         break;
     case MenuCopyImage:
         App::setClipboard(m_menuImage);
+        break;
+    case MenuSaveImage:
+        if (tab && m_menuImage == tab->url()) {
+            saveDocument(tab);
+        } else {
+            Delegates::download(m_menuImage);
+        }
+        break;
+    case MenuOpenMediaTab:
+        openTab(m_menuMedia.c_str(), false);
+        break;
+    case MenuCopyMedia:
+        App::setClipboard(m_menuMedia);
+        break;
+    case MenuSaveMedia:
+        Delegates::download(m_menuMedia);
+        break;
+    case MenuSavePage:
+        saveDocument(tab);
         break;
     case MenuCopy:
         if (tab) {

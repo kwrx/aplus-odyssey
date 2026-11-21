@@ -864,6 +864,13 @@ void WebFrameLoaderClient::dispatchDecidePolicyForNavigationAction(const Navigat
         m_webFrame->webView()->setPolicyDelegate(policyDelegate);
     }
 
+#if ENABLE(DOWNLOAD_ATTRIBUTE)
+    if (!action.downloadAttribute().isNull() && m_webFrame->webView()->downloadDelegate()) {
+        function(PolicyAction::Download, identifier);
+        return;
+    }
+#endif
+
     WebMutableURLRequest* urlRequest =  WebMutableURLRequest::createInstance(request);
     WebNavigationAction* actionInformation = WebNavigationAction::createInstance(&action, formState ? &formState->form() : nullptr, m_webFrame);
 
@@ -926,9 +933,14 @@ void WebFrameLoaderClient::dispatchDidFailLoad(const ResourceError& error)
     }
 }
 
-void WebFrameLoaderClient::startDownload(const ResourceRequest&, const String& /* suggestedName */)
+void WebFrameLoaderClient::startDownload(const ResourceRequest& request, const String& suggestedName)
 {
-    notImplemented();
+    SharedPtr<WebDownloadDelegate> downloadDelegate = m_webFrame->webView()->downloadDelegate();
+    if (!downloadDelegate)
+        return;
+
+    WebDownload* download = WebDownload::createInstance(request, suggestedName, downloadDelegate);
+    download->start();
 }
 
 ObjectContentType WebFrameLoaderClient::objectContentType(const URL& url, const String& mimeTypeIn)

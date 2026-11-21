@@ -96,6 +96,7 @@ public:
      * @param[in]: WebDownloadDelegate
      */
     static WebDownload* createInstance(WebCore::ResourceHandle*, const WebCore::ResourceRequest*, const WebCore::ResourceResponse*, TransferSharedPtr<WebDownloadDelegate>);
+    static WebDownload* createInstance(const WebCore::ResourceRequest&, const WTF::String& suggestedFilename, TransferSharedPtr<WebDownloadDelegate>);
 
     /**
      * create new instance of WebDownload
@@ -121,6 +122,7 @@ private:
      * @param[in]: WebDownloadDelegate
      */
     void init(const WTF::URL&, TransferSharedPtr<WebDownloadDelegate>);
+    void init(const WebCore::ResourceRequest&, const WTF::String& suggestedFilename, TransferSharedPtr<WebDownloadDelegate>);
 
     /**
      * initialise WebDownload
@@ -244,6 +246,8 @@ public:
     TransferSharedPtr<WebDownloadDelegate> downloadDelegate() { return m_delegate; }
 
 protected:
+    void startDataURL();
+
     WebMutableURLRequest* m_request;
     WebURLResponse *m_response;
     SharedPtr<WebDownloadDelegate> m_delegate;

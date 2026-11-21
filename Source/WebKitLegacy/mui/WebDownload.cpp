@@ -49,6 +49,8 @@
 #include <WebCore/ResourceError.h>
 #include <WebCore/ResourceHandle.h>
 #include "ResourceHandleInternal.h"
+#include <WebCore/DataURLDecoder.h>
+#include <WebCore/MIMETypeRegistry.h>
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/ResourceHandleClient.h>
 #include <WebCore/ResourceResponse.h>
@@ -81,6 +83,13 @@ WebDownloadPrivate::WebDownloadPrivate()
         , resourceRequest(0)
         , dl(0)
         {}
+
+static CurlRequest* curlRequestForHandle(ResourceHandle* handle)
+{
+    if (!handle || !handle->getInternal())
+        return nullptr;
+    return handle->getInternal()->m_curlRequest.get();
+}
 
 /*****************************************************************************************************/
 
@@ -152,7 +161,8 @@ void DownloadClient::didReceiveResponseAsync(ResourceHandle*, WebCore::ResourceR
 
     // Can we resume and do we want to resume?
 
-    if(priv->resourceHandle->getInternal()->m_curlRequest->resumeOffset() != 0) /* isResuming */
+    CurlRequest* curlRequest = curlRequestForHandle(priv->resourceHandle.get());
+    if(curlRequest && curlRequest->resumeOffset() != 0) /* isResuming */
     {
         if (1) /* canResume */
         {
@@ -179,7 +189,18 @@ void DownloadClient::didReceiveResponseAsync(ResourceHandle*, WebCore::ResourceR
     }
     else
     {
-        WTF::String suggestedFilename = webResponse->suggestedFilename();
+        WTF::String suggestedFilename = priv->suggestedFilename;
+        if (suggestedFilename.isEmpty())
+            suggestedFilename = webResponse->suggestedFilename();
+        if (suggestedFilename.isEmpty() && (response.url().protocolIsData() || response.url().protocolIsBlob()))
+        {
+            suggestedFilename = "download"_s;
+            String extension = MIMETypeRegistry::preferredExtensionForMIMEType(response.mimeType());
+            if (!extension.isEmpty())
+                suggestedFilename = makeString(suggestedFilename, '.', extension);
+        }
+        suggestedFilename.replace('/', '_');
+        suggestedFilename.replace('\\', '_');
         if(suggestedFilename.length() == 0)
         {
             suggestedFilename = response.url().string().substring(response.url().pathAfterLastSlash());
@@ -221,15 +242,23 @@ void DownloadClient::didReceiveResponseAsync(ResourceHandle*, WebCore::ResourceR
         }
         */
 
-        if(priv->allowResume)
+        if(priv->allowResume && curlRequest)
         {
             priv->resourceHandle->cancel();
             priv->resourceHandle = ResourceHandle::create2(new WebDownloadNetworkingContext(), *priv->resourceRequest, priv->downloadClient, false, false, false);
             // HACK to disable on-the-fly gzip decoding
+            CurlRequest* resumeRequest = curlRequestForHandle(priv->resourceHandle.get());
+            if (!resumeRequest)
+            {
+                ResourceError resourceError(String(WebKitErrorDomain), WebURLErrorCannotCreateFile, URL(), String("Can't resume"));
+                didFail(priv->resourceHandle.get(), resourceError);
+                completionHandler();
+                return;
+            }
             if (priv->requestUri.endsWith(".gz") || priv->requestUri.endsWith(".tgz"))
-                priv->resourceHandle->getInternal()->m_curlRequest->setDisableEncoding(true);
-            priv->resourceHandle->getInternal()->m_curlRequest->setResumeOffset(priv->startOffset);
-            priv->resourceHandle->getInternal()->m_curlRequest->start();
+                resumeRequest->setDisableEncoding(true);
+            resumeRequest->setResumeOffset(priv->startOffset);
+            resumeRequest->start();
             completionHandler();
             return;
         }
@@ -308,8 +337,11 @@ void DownloadClient::didFail(ResourceHandle*, const ResourceError& resourceError
     WebDownloadPrivate* priv = m_download->getWebDownloadPrivate();
     priv->state = WEBKIT_WEB_DOWNLOAD_STATE_ERROR;
 
-    priv->resourceHandle->clearClient();
-    priv->resourceHandle->cancel();
+    if (priv->resourceHandle)
+    {
+        priv->resourceHandle->clearClient();
+        priv->resourceHandle->cancel();
+    }
 
     if(priv->outputChannel)
     {
@@ -374,6 +406,26 @@ void WebDownload::init(const URL& url, TransferSharedPtr<WebDownloadDelegate> de
     m_priv->resourceHandle = nullptr;
     m_response = NULL;
     m_priv->requestUri = String(url.string());
+}
+
+void WebDownload::init(const ResourceRequest& request, const String& suggestedFilename, TransferSharedPtr<WebDownloadDelegate> delegate)
+{
+    m_delegate = delegate;
+
+    m_priv->resourceRequest = new ResourceRequest(request);
+    m_request = WebMutableURLRequest::createInstance(*m_priv->resourceRequest);
+
+    m_priv->downloadClient = new DownloadClient(this);
+    m_priv->currentSize = 0;
+    m_priv->startOffset = 0;
+    m_priv->outputChannel = NULL;
+    m_priv->state = WEBKIT_WEB_DOWNLOAD_STATE_CREATED;
+    m_priv->resourceHandle = nullptr;
+    m_response = NULL;
+    m_priv->requestUri = request.url().string();
+    m_priv->suggestedFilename = suggestedFilename;
+    if (!request.httpReferrer().isEmpty())
+        m_priv->originURL = request.httpReferrer();
 }
 
 void WebDownload::init(const URL& url, const String& originURL, TransferSharedPtr<WebDownloadDelegate> delegate)
@@ -441,6 +493,13 @@ WebDownload* WebDownload::createInstance(ResourceHandle* handle, const ResourceR
     return instance;
 }
 
+WebDownload* WebDownload::createInstance(const ResourceRequest& request, const String& suggestedFilename, TransferSharedPtr<WebDownloadDelegate> delegate)
+{
+    WebDownload* instance = new WebDownload();
+    instance->init(request, suggestedFilename, delegate);
+    return instance;
+}
+
 WebDownload* WebDownload::createInstance(const URL& url, TransferSharedPtr<WebDownloadDelegate> delegate)
 {
     WebDownload* instance = new WebDownload();
@@ -503,23 +562,50 @@ void WebDownload::start(bool quiet)
         ResourceResponse response(m_response->resourceResponse());
         m_priv->resourceHandle->setClientInternal(m_priv->downloadClient);
         // HACK to disable on-the-fly gzip decoding
-        if (m_priv->requestUri.endsWith(".gz") || m_priv->requestUri.endsWith(".tgz"))
-            m_priv->resourceHandle->getInternal()->m_curlRequest->setDisableEncoding(true);
+        CurlRequest* curlRequest = curlRequestForHandle(m_priv->resourceHandle.get());
+        if (curlRequest && (m_priv->requestUri.endsWith(".gz") || m_priv->requestUri.endsWith(".tgz")))
+            curlRequest->setDisableEncoding(true);
         m_priv->downloadClient->didStart();
         m_priv->downloadClient->didReceiveResponseAsync(m_priv->resourceHandle.get(), WTFMove(response) , [] { });
+    }
+    else if (m_request->resourceRequest().url().protocolIsData())
+    {
+        m_priv->downloadClient->didStart();
+        startDataURL();
     }
     else
     {
         m_priv->downloadClient->didStart();
         m_priv->resourceHandle = ResourceHandle::create2(new WebDownloadNetworkingContext(), m_request->resourceRequest(), m_priv->downloadClient, false, false, false);
-        if(m_priv->resourceHandle)
+        CurlRequest* curlRequest = curlRequestForHandle(m_priv->resourceHandle.get());
+        if (curlRequest)
         {
             // HACK to disable on-the-fly gzip decoding
             if (m_priv->requestUri.endsWith(".gz") || m_priv->requestUri.endsWith(".tgz"))
-                m_priv->resourceHandle->getInternal()->m_curlRequest->setDisableEncoding(true);
-            m_priv->resourceHandle->getInternal()->m_curlRequest->start();
+                curlRequest->setDisableEncoding(true);
+            curlRequest->start();
         }
     }
+}
+
+void WebDownload::startDataURL()
+{
+    URL url = m_request->resourceRequest().url();
+    auto result = DataURLDecoder::decode(url, DataURLDecoder::Mode::Legacy);
+    if (!result)
+    {
+        m_priv->downloadClient->didFail(nullptr, ResourceError(String(WebKitErrorDomain), WebURLErrorCannotCreateFile, url, String("Invalid data URL")));
+        return;
+    }
+
+    ResourceResponse response(url, result->mimeType, result->data.size(), result->charset);
+    response.setHTTPStatusCode(200);
+    m_priv->downloadClient->didReceiveResponseAsync(nullptr, WTFMove(response), [] { });
+    if (m_priv->state != WEBKIT_WEB_DOWNLOAD_STATE_STARTED || !m_priv->outputChannel)
+        return;
+
+    m_priv->downloadClient->didReceiveData(nullptr, result->data.data(), result->data.size(), result->data.size());
+    m_priv->downloadClient->didFinishLoading(nullptr, NetworkLoadMetrics { });
 }
 
 void WebDownload::cancel()

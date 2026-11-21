@@ -141,6 +141,7 @@ private:
 
     void showMainMenu();
     void showContextMenu(int x, int y);
+    void saveDocument(Tab*);
     void showTabMenu(int index, int x, int y);
     void runMenuAction(MenuKind, uint32_t id);
 
@@ -202,6 +203,8 @@ private:
     int m_menuTab { -1 };
     std::string m_menuLink;
     std::string m_menuImage;
+    std::string m_menuMedia;
+    bool m_menuMediaVideo { false };
     std::string m_menuSelection;
     bool m_menuEditable { false };
 
