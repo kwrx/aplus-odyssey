@@ -52,6 +52,7 @@ list(APPEND WebKitLegacy_SOURCES
     mui/aplus/WebViewPrivateAplus.cpp
     mui/WebURLResponse.cpp
 
+    mui/WebCoreSupport/WebCacheStorageProvider.cpp
     mui/WebCoreSupport/WebChromeClient.cpp
     mui/WebCoreSupport/WebContextMenuClient.cpp
     mui/WebCoreSupport/WebDesktopNotificationsDelegate.cpp
@@ -61,6 +62,7 @@ list(APPEND WebKitLegacy_SOURCES
     mui/WebCoreSupport/WebFrameLoaderClient.cpp
     mui/WebCoreSupport/WebFrameNetworkingContext.cpp
     mui/WebCoreSupport/WebInspectorClient.cpp
+    mui/WebCoreSupport/WebPermissionController.cpp
     mui/WebCoreSupport/WebPlatformStrategies.cpp
     mui/WebCoreSupport/WebPluginInfoProvider.cpp
     mui/WebCoreSupport/WebProgressTrackerClient.cpp

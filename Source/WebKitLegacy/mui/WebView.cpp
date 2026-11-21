@@ -59,6 +59,8 @@
 #include "WebEditingDelegate.h"
 #include "WebFrame.h"
 #include "WebFrameLoaderClient.h"
+#include "WebCacheStorageProvider.h"
+#include "WebPermissionController.h"
 #include "WebFrameLoadDelegate.h"
 #include "WebGeolocationClient.h"
 #include "WebGeolocationPosition.h"
@@ -417,7 +419,7 @@ WebView::WebView()
         makeUniqueRef<WebEditorClient>(this),
         SocketProvider::create(),
         makeUniqueRef<LibWebRTCProvider>(),
-        CacheStorageProvider::create(),
+        WebCacheStorageProvider::create(),
         m_webViewGroup->userContentController(),
         BackForwardList::create(),
         CookieJar::create(storageProvider.copyRef()),
@@ -426,7 +428,7 @@ WebView::WebView()
         makeUniqueRef<DummySpeechRecognitionProvider>(),
         makeUniqueRef<MediaRecorderProvider>(),
         WebBroadcastChannelRegistry::getOrCreate(false),
-        WebCore::DummyPermissionController::create()
+        WebPermissionController::create()
     );
     configuration.backForwardClient = BackForwardList::create();
     configuration.chromeClient = new WebChromeClient(this);
@@ -548,6 +550,24 @@ WebView::WebView()
     settings.setCSSIndividualTransformPropertiesEnabled(true);
     settings.setAspectRatioEnabled(true);
     settings.setBeaconAPIEnabled(true);
+    settings.setLinkPrefetchEnabled(true);
+    settings.setLinkPreconnectEnabled(true);
+    settings.setLazyIframeLoadingEnabled(true);
+    settings.setMediaCapabilitiesEnabled(true);
+    settings.setInteractiveFormValidationEnabled(true);
+    settings.setPermissionsAPIEnabled(true);
+    settings.setCSSRelativeColorSyntaxEnabled(true);
+    settings.setCSSColorContrastEnabled(true);
+    settings.setSpringTimingFunctionEnabled(true);
+    settings.setCrossOriginOpenerPolicyEnabled(true);
+    settings.setCrossOriginEmbedderPolicyEnabled(true);
+#if ENABLE(DOWNLOAD_ATTRIBUTE)
+    settings.setDownloadAttributeEnabled(true);
+#endif
+    RuntimeEnabledFeatures::sharedFeatures().setCacheAPIEnabled(true);
+    RuntimeEnabledFeatures::sharedFeatures().setServerTimingEnabled(true);
+    RuntimeEnabledFeatures::sharedFeatures().setHighlightAPIEnabled(true);
+    RuntimeEnabledFeatures::sharedFeatures().setPageAtRuleSupportEnabled(true);
     RuntimeEnabledFeatures::sharedFeatures().setReadableByteStreamAPIEnabled(true);
     RuntimeEnabledFeatures::sharedFeatures().setWritableStreamAPIEnabled(true);
     RuntimeEnabledFeatures::sharedFeatures().setTransformStreamAPIEnabled(true);

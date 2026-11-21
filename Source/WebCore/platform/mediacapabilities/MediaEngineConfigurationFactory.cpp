@@ -45,6 +45,10 @@
 #include "MediaEngineConfigurationFactoryGStreamer.h"
 #endif
 
+#if OS(APLUS) && ENABLE(VIDEO)
+#include "MediaEngineConfigurationFactoryAplus.h"
+#endif
+
 namespace WebCore {
 
 static bool& mockEnabled()
@@ -62,6 +66,9 @@ static FactoryVector defaultFactories()
 #endif
 #if USE(GSTREAMER)
     factories.append({ &createMediaPlayerDecodingConfigurationGStreamer, &createMediaPlayerEncodingConfigurationGStreamer });
+#endif
+#if OS(APLUS) && ENABLE(VIDEO)
+    factories.append({ &createMediaPlayerDecodingConfigurationAplus, nullptr });
 #endif
     return factories;
 }

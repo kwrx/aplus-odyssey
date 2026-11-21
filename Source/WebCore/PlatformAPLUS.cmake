@@ -74,6 +74,7 @@ list(APPEND WebCore_SOURCES
     platform/aplus/AplusClipboard.cpp
     platform/aplus/AplusPaths.cpp
     platform/aplus/CursorAplus.cpp
+    platform/aplus/MediaEngineConfigurationFactoryAplus.cpp
     platform/mui/DataObjectMorphOS.cpp
     platform/mui/DragControllerMorphOS.cpp
     platform/mui/DragDataMorphOS.cpp

@@ -27,6 +27,7 @@
 #include <JavaScriptCore/JSExportMacros.h>
 #include "PingHandle.h"
 #include <WebCore/CachedResource.h>
+#include <WebCore/DNS.h>
 #include <WebCore/Document.h>
 #include <WebCore/DocumentLoader.h>
 #include <WebCore/FetchOptions.h>
@@ -403,7 +404,17 @@ void WebResourceLoadScheduler::addOnlineStateChangeListener(WTF::Function<void(b
     NetworkStateNotifier::singleton().addListener(WTFMove(listener));
 }
 
+#if OS(APLUS)
+void WebResourceLoadScheduler::preconnectTo(FrameLoader&, const URL& url, StoredCredentialsPolicy, PreconnectCompletionHandler&& completionHandler)
+{
+    if (url.protocolIsInHTTPFamily() && !url.host().isEmpty())
+        prefetchDNS(url.host().toString());
+    if (completionHandler)
+        completionHandler(ResourceError { });
+}
+#else
 void WebResourceLoadScheduler::preconnectTo(FrameLoader&, const URL&, StoredCredentialsPolicy, PreconnectCompletionHandler&&)
 {
 }
+#endif
 
